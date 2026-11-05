@@ -1,0 +1,244 @@
+/* --t-* primitives, ported verbatim from
+   packages/simplize-ui/src/theme-constants/theme-light.css (+ dark scope).
+   Radix P3 scales; the grays are neutral display-p3 triples. */
+:root, :root[data-theme='light'], .light {
+  color-scheme: light;
+
+  /* GRAY_SCALE_LIGHT — neutral Radix gray P3 */
+  --t-gray-scale-gray1: color(display-p3 1 1 1);
+  --t-gray-scale-gray2: color(display-p3 0.988 0.988 0.988);
+  --t-gray-scale-gray3: color(display-p3 0.976 0.976 0.976);
+  --t-gray-scale-gray4: color(display-p3 0.945 0.945 0.945);
+  --t-gray-scale-gray5: color(display-p3 0.922 0.922 0.922);
+  --t-gray-scale-gray6: color(display-p3 0.839 0.839 0.839);
+  --t-gray-scale-gray7: color(display-p3 0.8 0.8 0.8);
+  --t-gray-scale-gray8: color(display-p3 0.702 0.702 0.702);
+  --t-gray-scale-gray9: color(display-p3 0.6 0.6 0.6);
+  --t-gray-scale-gray10: color(display-p3 0.514 0.514 0.514);
+  --t-gray-scale-gray11: color(display-p3 0.4 0.4 0.4);
+  --t-gray-scale-gray12: color(display-p3 0.2 0.2 0.2);
+
+  --t-background-primary: color(display-p3 1 1 1);
+  --t-background-secondary: color(display-p3 0.988 0.988 0.988);
+  --t-background-tertiary: color(display-p3 0.945 0.945 0.945);
+  --t-background-quaternary: color(display-p3 0.922 0.922 0.922);
+  --t-background-inverted-primary: color(display-p3 0.2 0.2 0.2);
+  --t-background-inverted-secondary: color(display-p3 0.4 0.4 0.4);
+  --t-background-danger: color(display-p3 0.985 0.925 0.925);
+  --t-background-transparent-primary: color(display-p3 1 1 1 / 0.5);
+  --t-background-transparent-secondary: color(display-p3 1 1 1 / 0.4);
+  --t-background-transparent-strong: color(display-p3 0 0 0 / 0.161);
+  --t-background-transparent-medium: color(display-p3 0 0 0 / 0.078);
+  --t-background-transparent-light: color(display-p3 0 0 0 / 0.039);
+  --t-background-transparent-lighter: color(display-p3 0 0 0 / 0.02);
+  --t-background-transparent-danger: #f3000d14;
+  --t-background-transparent-blue: #0047f112;
+  --t-background-transparent-orange: #ff9c0029;
+  --t-background-transparent-success: #00a43319;
+  --t-background-overlay-primary: color(display-p3 0 0 0 / 0.722);
+  --t-background-overlay-secondary: color(display-p3 0 0 0 / 0.361);
+  --t-background-overlay-tertiary: color(display-p3 0 0 0 / 0.071);
+  --t-background-primary-inverted: color(display-p3 0.2 0.2 0.2);
+  --t-background-primary-inverted-hover: color(display-p3 0.4 0.4 0.4);
+  --t-background-noisy: url(assets/light-noise.png); /* @kind other */
+
+  --t-border-color-strong: color(display-p3 0.839 0.839 0.839);
+  --t-border-color-medium: color(display-p3 0.922 0.922 0.922);
+  --t-border-color-light: color(display-p3 0.945 0.945 0.945);
+  --t-border-color-secondary-inverted: color(display-p3 0.4 0.4 0.4);
+  --t-border-color-inverted: color(display-p3 0.2 0.2 0.2);
+  --t-border-color-danger: color(display-p3 0.984 0.812 0.811);
+  --t-border-color-blue: color(display-p3 0.685 0.74 0.957);
+  --t-border-color-transparent-strong: color(display-p3 0 0 0 / 0.071);
+
+  --t-font-color-primary: color(display-p3 0.2 0.2 0.2);
+  --t-font-color-secondary: color(display-p3 0.4 0.4 0.4);
+  --t-font-color-tertiary: color(display-p3 0.6 0.6 0.6);
+  --t-font-color-light: color(display-p3 0.702 0.702 0.702);
+  --t-font-color-extra-light: color(display-p3 0.8 0.8 0.8);
+  --t-font-color-inverted: color(display-p3 1 1 1);
+  --t-font-color-danger: color(display-p3 0.83 0.329 0.324);
+
+  --t-blur-light: blur(6px) saturate(200%) contrast(50%) brightness(130%); /* @kind other */
+  --t-blur-medium: blur(12px) saturate(200%) contrast(50%) brightness(130%); /* @kind other */
+  --t-blur-strong: blur(20px) saturate(200%) contrast(50%) brightness(130%); /* @kind other */
+
+  --t-box-shadow-color: color(display-p3 0 0 0 / 0.039);
+  --t-box-shadow-light: 0px 2px 4px 0px color(display-p3 0 0 0 / 0.039), 0px 0px 4px 0px color(display-p3 0 0 0 / 0.078);
+  --t-box-shadow-strong: 2px 4px 16px 0px color(display-p3 0 0 0 / 0.161), 0px 2px 4px 0px color(display-p3 0 0 0 / 0.078);
+  --t-box-shadow-underline: 0px 1px 0px 0px color(display-p3 0 0 0 / 0.361);
+  --t-box-shadow-super-heavy: 0px 0px 8px 0px color(display-p3 0 0 0 / 0.161), 0px 8px 64px -16px color(display-p3 0 0 0 / 0.2), 0px 24px 56px -16px color(display-p3 0 0 0 / 0.078);
+
+  /* Accent = Radix indigo P3 */
+  --t-accent-primary: color(display-p3 0.831 0.87 1);
+  --t-accent-secondary: color(display-p3 0.831 0.87 1);
+  --t-accent-tertiary: color(display-p3 0.933 0.948 0.992);
+  --t-accent-quaternary: color(display-p3 0.971 0.977 0.998);
+  --t-accent-accent3570: color(display-p3 0.569 0.639 0.916);
+  --t-accent-accent4060: color(display-p3 0.569 0.639 0.916);
+  --t-accent-accent1: color(display-p3 0.992 0.992 0.996);
+  --t-accent-accent2: color(display-p3 0.971 0.977 0.998);
+  --t-accent-accent3: color(display-p3 0.933 0.948 0.992);
+  --t-accent-accent4: color(display-p3 0.885 0.914 1);
+  --t-accent-accent5: color(display-p3 0.831 0.87 1);
+  --t-accent-accent6: color(display-p3 0.767 0.814 0.995);
+  --t-accent-accent7: color(display-p3 0.685 0.74 0.957);
+  --t-accent-accent8: color(display-p3 0.569 0.639 0.916);
+  --t-accent-accent9: color(display-p3 0.276 0.384 0.837);
+  --t-accent-accent10: color(display-p3 0.234 0.343 0.801);
+  --t-accent-accent11: color(display-p3 0.256 0.354 0.755);
+  --t-accent-accent12: color(display-p3 0.133 0.175 0.348);
+
+  /* Main hues (step 9 of each Radix P3 scale) */
+  --t-color-blue: color(display-p3 0.276 0.384 0.837);
+  --t-color-green: color(display-p3 0.332 0.634 0.442);
+  --t-color-red: color(display-p3 0.83 0.329 0.324);
+  --t-color-orange: color(display-p3 0.9 0.45 0.2);
+  --t-color-yellow: color(display-p3 1 0.92 0.22);
+  --t-color-purple: color(display-p3 0.523 0.318 0.751);
+  --t-color-pink: color(display-p3 0.775 0.297 0.61);
+  --t-color-turquoise: color(display-p3 0.297 0.637 0.581);
+  --t-color-gray: color(display-p3 0.6 0.6 0.6);
+  --t-color-blue3: color(display-p3 0.933 0.948 0.992);
+  --t-color-blue5: color(display-p3 0.831 0.87 1);
+  --t-color-blue7: color(display-p3 0.685 0.74 0.957);
+  --t-color-blue8: color(display-p3 0.569 0.639 0.916);
+  --t-color-blue10: color(display-p3 0.234 0.343 0.801);
+  --t-color-blue12: color(display-p3 0.133 0.175 0.348);
+  --t-color-green3: color(display-p3 0.913 0.964 0.925);
+  --t-color-green9: color(display-p3 0.332 0.634 0.442);
+  --t-color-green4: color(display-p3 0.87 0.94 0.89);
+  --t-color-green10: color(display-p3 0.297 0.583 0.402);
+  --t-color-green12: color(display-p3 0.13 0.28 0.19);
+  --t-color-orange7: color(display-p3 0.98 0.66 0.42);
+  --t-color-red3: color(display-p3 0.985 0.925 0.925);
+  --t-color-red5: color(display-p3 0.984 0.812 0.811);
+  --t-color-red8: color(display-p3 0.872 0.575 0.552);
+  --t-color-red10: color(display-p3 0.744 0.234 0.222);
+
+  /* Tag pairs — background + text, one per hue */
+  --t-tag-background-gray: color(display-p3 0.976 0.976 0.976);
+  --t-tag-text-gray: color(display-p3 0.4 0.4 0.4);
+  --t-tag-background-red: color(display-p3 0.985 0.925 0.925);
+  --t-tag-text-red: color(display-p3 0.744 0.234 0.222);
+  --t-tag-background-orange: color(display-p3 0.989 0.938 0.85);
+  --t-tag-text-orange: color(display-p3 0.76 0.34 0);
+  --t-tag-background-yellow: color(display-p3 0.997 0.982 0.749);
+  --t-tag-text-yellow: color(display-p3 0.6 0.44 0);
+  --t-tag-background-green: color(display-p3 0.913 0.964 0.925);
+  --t-tag-text-green: color(display-p3 0.19 0.5 0.32);
+  --t-tag-background-turquoise: color(display-p3 0.895 0.971 0.952);
+  --t-tag-text-turquoise: color(display-p3 0.08 0.5 0.43);
+  --t-tag-background-blue: color(display-p3 0.933 0.948 0.992);
+  --t-tag-text-blue: color(display-p3 0.256 0.354 0.755);
+  --t-tag-background-purple: color(display-p3 0.963 0.931 0.989);
+  --t-tag-text-purple: color(display-p3 0.473 0.281 0.687);
+  --t-tag-background-pink: color(display-p3 0.981 0.917 0.96);
+  --t-tag-text-pink: color(display-p3 0.698 0.219 0.528);
+  --t-tag-background-sky: color(display-p3 0.9 0.96 0.99);
+  --t-tag-text-sky: color(display-p3 0.1 0.4 0.55);
+  --t-tag-background-amber: color(display-p3 0.997 0.95 0.8);
+  --t-tag-text-amber: color(display-p3 0.65 0.35 0);
+  --t-tag-background-violet: color(display-p3 0.95 0.94 0.99);
+  --t-tag-text-violet: color(display-p3 0.38 0.31 0.7);
+
+  /* OBJECT TILE BACKGROUNDS — the 16px rounded tile behind a top-level sidebar object icon.
+     Sampled from the shipping product; a mid step between --t-tag-background-* (too pale at 16px)
+     and --t-color-* (too saturated to carry a dark glyph). Pair each with its --t-tag-text-<hue>.
+     Declared in sRGB (not display-p3) because the values were measured off an sRGB capture. */
+  --t-object-tile-green: #C4E8D1;
+  --t-object-tile-blue: #D1DEFF;
+  --t-object-tile-purple: #EAD5F9;
+  --t-object-tile-violet: #E1D9FF;
+  --t-object-tile-yellow: #FBE577;
+  --t-object-tile-orange: #FFCF8B;
+  --t-object-tile-turquoise: #B8EAE0;
+  --t-object-tile-pink: #EFBFDD;
+  --t-object-tile-red: #FFCDCE;
+
+  /* OBJECT TILE BORDERS — every tile carries a hairline 1px border: the fill mixed ~11% toward its
+     own --t-tag-text-<hue> (solved against the capture, Δ1.8–5.3). Nested gray tiles instead
+     border in --t-border-color-strong. */
+  --t-object-tile-border-green: #AEDDC2;
+  --t-object-tile-border-blue: #C0D0F9;
+  --t-object-tile-border-purple: #DEC5F2;
+  --t-object-tile-border-violet: #D3CAF7;
+  --t-object-tile-border-yellow: #F1D86A;
+  --t-object-tile-border-orange: #FAC17C;
+  --t-object-tile-border-turquoise: #A4DFD3;
+  --t-object-tile-border-pink: #EAAFD4;
+  --t-object-tile-border-red: #FABBBD;
+}
+
+:root[data-theme='dark'], .dark {
+  color-scheme: dark;
+  --t-gray-scale-gray1: color(display-p3 0.067 0.067 0.067);
+  --t-gray-scale-gray2: color(display-p3 0.09 0.09 0.09);
+  --t-gray-scale-gray3: color(display-p3 0.106 0.106 0.106);
+  --t-gray-scale-gray4: color(display-p3 0.114 0.114 0.114);
+  --t-gray-scale-gray5: color(display-p3 0.133 0.133 0.133);
+  --t-gray-scale-gray6: color(display-p3 0.2 0.2 0.2);
+  --t-gray-scale-gray7: color(display-p3 0.282 0.282 0.282);
+  --t-gray-scale-gray8: color(display-p3 0.4 0.4 0.4);
+  --t-gray-scale-gray9: color(display-p3 0.506 0.506 0.506);
+  --t-gray-scale-gray10: color(display-p3 0.6 0.6 0.6);
+  --t-gray-scale-gray11: color(display-p3 0.702 0.702 0.702);
+  --t-gray-scale-gray12: color(display-p3 0.922 0.922 0.922);
+  --t-background-primary: color(display-p3 0.09 0.09 0.09);
+  --t-background-secondary: color(display-p3 0.106 0.106 0.106);
+  --t-background-tertiary: color(display-p3 0.114 0.114 0.114);
+  --t-background-quaternary: color(display-p3 0.133 0.133 0.133);
+  --t-background-inverted-primary: color(display-p3 0.922 0.922 0.922);
+  --t-background-inverted-secondary: color(display-p3 0.702 0.702 0.702);
+  --t-background-danger: color(display-p3 0.211 0.081 0.099);
+  --t-background-transparent-primary: color(display-p3 0 0 0 / 0.5);
+  --t-background-transparent-secondary: color(display-p3 0 0 0 / 0.4);
+  --t-background-transparent-strong: color(display-p3 1 1 1 / 0.141);
+  --t-background-transparent-medium: color(display-p3 1 1 1 / 0.102);
+  --t-background-transparent-light: color(display-p3 1 1 1 / 0.059);
+  --t-background-transparent-lighter: color(display-p3 1 1 1 / 0.031);
+  --t-background-transparent-danger: #ff173f2d;
+  --t-background-transparent-blue: #3566ff57;
+  --t-background-transparent-orange: #ff590039;
+  --t-background-transparent-success: #11ff992d;
+  --t-background-overlay-primary: #000000b8;
+  --t-background-overlay-secondary: #0000005c;
+  --t-background-overlay-tertiary: #0000005c;
+  --t-background-primary-inverted: color(display-p3 0.922 0.922 0.922);
+  --t-background-primary-inverted-hover: color(display-p3 0.702 0.702 0.702);
+  --t-border-color-strong: color(display-p3 0.282 0.282 0.282);
+  --t-border-color-medium: color(display-p3 0.133 0.133 0.133);
+  --t-border-color-light: color(display-p3 0.114 0.114 0.114);
+  --t-border-color-secondary-inverted: color(display-p3 0.702 0.702 0.702);
+  --t-border-color-inverted: color(display-p3 0.922 0.922 0.922);
+  --t-border-color-danger: color(display-p3 0.348 0.11 0.142);
+  --t-border-color-blue: color(display-p3 0.245 0.309 0.575);
+  --t-border-color-transparent-strong: color(display-p3 1 1 1 / 0.071);
+  --t-font-color-primary: color(display-p3 0.922 0.922 0.922);
+  --t-font-color-secondary: color(display-p3 0.702 0.702 0.702);
+  --t-font-color-tertiary: color(display-p3 0.506 0.506 0.506);
+  --t-font-color-light: color(display-p3 0.4 0.4 0.4);
+  --t-font-color-extra-light: color(display-p3 0.298 0.298 0.298);
+  --t-font-color-inverted: color(display-p3 0.09 0.09 0.09);
+  --t-font-color-danger: color(display-p3 0.83 0.329 0.324);
+  --t-blur-light: blur(6px) saturate(200%) contrast(100%) brightness(130%); /* @kind other */
+  --t-blur-medium: blur(12px) saturate(200%) contrast(100%) brightness(130%); /* @kind other */
+  --t-blur-strong: blur(20px) saturate(200%) contrast(100%) brightness(130%); /* @kind other */
+  --t-box-shadow-color: rgba(0, 0, 0, 0.6);
+  --t-box-shadow-underline: 0px 1px 0px 0px rgba(0, 0, 0, 0.32);
+  --t-accent-primary: color(display-p3 0.163 0.22 0.439);
+  --t-accent-secondary: color(display-p3 0.163 0.22 0.439);
+  --t-accent-tertiary: color(display-p3 0.105 0.141 0.275);
+  --t-accent-quaternary: color(display-p3 0.081 0.089 0.144);
+  --t-accent-accent11: color(display-p3 0.63 0.69 1);
+  --t-tag-background-blue: color(display-p3 0.105 0.141 0.275);
+  --t-tag-text-blue: color(display-p3 0.63 0.69 1);
+  --t-tag-background-green: color(display-p3 0.1 0.173 0.133);
+  --t-tag-text-green: color(display-p3 0.434 0.828 0.573);
+  --t-tag-background-red: color(display-p3 0.211 0.081 0.099);
+  --t-tag-text-red: color(display-p3 1 0.57 0.55);
+  --t-tag-background-yellow: color(display-p3 0.168 0.137 0.039);
+  --t-tag-text-yellow: color(display-p3 0.948 0.885 0.392);
+  --t-tag-background-gray: color(display-p3 0.098 0.098 0.098);
+  --t-tag-text-gray: color(display-p3 0.702 0.702 0.702);
+}

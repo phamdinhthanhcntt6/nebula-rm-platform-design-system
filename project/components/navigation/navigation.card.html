@@ -1,0 +1,46 @@
+<!-- @dsCard group="6. Navigation" viewport="720x560" name="Navigation — drawer, tabs" subtitle="Navigation drawer with workspace header, tabs row, sections and nested items; show-page tabs" -->
+<!doctype html><html><head><meta charset="utf-8">
+<link rel="stylesheet" href="../../styles.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.34.1/dist/tabler-icons.min.css">
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+<script src="../../_ds_bundle.js"></script>
+<style>body{margin:0;padding:16px;background:var(--t-background-primary);font-family:var(--t-font-family);color:var(--t-font-color-primary);font-size:13px}.row{display:flex;align-items:center;flex-wrap:wrap;gap:8px}.col{display:flex;flex-direction:column;gap:12px}.lbl{font-size:11px;font-weight:600;color:var(--t-font-color-light)}</style></head><body><div id="root"></div>
+<script type="text/babel">
+const DS = window.NebulaRMPlatformDesignSystem_5dfab2;
+
+const { NavigationDrawer, NavigationDrawerHeader, NavigationDrawerTabsRow, NavigationDrawerSection, NavigationDrawerSectionTitle, NavigationDrawerItem, IconButton, Tabs } = DS;
+function Card(){
+  const [tab,setTab]=React.useState('home');
+  return (<div className="row" style={{alignItems:'flex-start',gap:24}}>
+  <div style={{background:'var(--t-gray-scale-gray3)',height:520,borderRadius:8,display:'flex'}}>
+    <NavigationDrawer width={236} header={<NavigationDrawerHeader workspaceName="Simplize" notifications={2} />}>
+      <NavigationDrawerTabsRow activeTab="navigation" />
+      <NavigationDrawerSection>
+        <NavigationDrawerSectionTitle label="Workspace" isOpen />
+        <NavigationDrawerItem label="Work" Icon="checklist" iconColor="var(--t-color-green)" isOpen />
+        <NavigationDrawerItem label="Tasks" Icon="checkbox" indentationLevel={2} subItemState="intermediate-after" />
+        <NavigationDrawerItem label="Appointments" Icon="calendar-check" indentationLevel={2} subItemState="last" />
+        <NavigationDrawerItem label="Customers" Icon="id-badge-2" iconColor="var(--t-color-blue)" isOpen />
+        <NavigationDrawerItem label="Customer segments" Icon="chart-pie" indentationLevel={2} subItemState="last" active rightOptions={<IconButton Icon="dots" variant="light" accent="tertiary" size="small" ariaLabel="More" />} />
+        <NavigationDrawerItem label="Conversations" Icon="message-2" iconColor="var(--t-color-blue)" isOpen={false} />
+        <NavigationDrawerItem label="Sales" Icon="target" iconColor="var(--t-color-green)" isOpen />
+        <NavigationDrawerItem label="Leads" Icon="target-arrow" indentationLevel={2} />
+        <NavigationDrawerItem label="Deals" Icon="target-arrow" indentationLevel={2} />
+        <NavigationDrawerItem label="Forecast" Icon="chart-bar" indentationLevel={2} subItemState="last" modifier="soon" />
+        <NavigationDrawerItem label="eLearning" Icon="school" iconColor="var(--t-color-orange)" isOpen={false} />
+      </NavigationDrawerSection>
+      <NavigationDrawerSection>
+        <NavigationDrawerSectionTitle label="R&D" isOpen />
+        <NavigationDrawerItem label="Workspace" Icon="building" isOpen />
+        <NavigationDrawerItem label="Activities" Icon="checkbox" indentationLevel={2} subItemState="last" />
+      </NavigationDrawerSection>
+    </NavigationDrawer>
+  </div>
+  <div style={{width:420}}>
+    <Tabs activeId={tab} onChange={setTab} tabs={[{id:'home',label:'Home',Icon:'target'},{id:'timeline',label:'Activities',Icon:'message-circle'},{id:'tasks',label:'Tasks',Icon:'checkbox'}]} overflowLabel="+3 More" />
+  </div>
+</div>);}
+ReactDOM.createRoot(document.getElementById('root')).render(<Card />);
+</script></body></html>

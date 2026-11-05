@@ -1,0 +1,3 @@
+/* simplize-ui FONT_COMMON.family = 'Inter, sans-serif'. The repo loads Inter
+   from Google Fonts; nothing else is declared. */
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap');

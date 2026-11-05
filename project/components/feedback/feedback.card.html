@@ -1,0 +1,30 @@
+<!-- @dsCard group="8. Feedback" viewport="760x320" name="Feedback — alerts, snackbar, empty state" subtitle="Four alert variants, banner strip, inverted toast, empty placeholder" -->
+<!doctype html><html><head><meta charset="utf-8">
+<link rel="stylesheet" href="../../styles.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.34.1/dist/tabler-icons.min.css">
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+<script src="../../_ds_bundle.js"></script>
+<style>body{margin:0;padding:16px;background:var(--t-background-primary);font-family:var(--t-font-family);color:var(--t-font-color-primary);font-size:13px}.row{display:flex;align-items:center;flex-wrap:wrap;gap:8px}.col{display:flex;flex-direction:column;gap:12px}.lbl{font-size:11px;font-weight:600;color:var(--t-font-color-light)}</style></head><body><div id="root"></div>
+<script type="text/babel">
+const DS = window.NebulaRMPlatformDesignSystem_5dfab2;
+
+const { Alert, Banner, SnackBar, EmptyState } = DS;
+function Card(){return (<div className="row" style={{alignItems:'flex-start',gap:24}}>
+  <div className="col" style={{width:300,gap:8}}>
+    <Alert variant="success" size="small">Sync completed · 6 segments updated</Alert>
+    <Alert variant="warning" size="small">3 members have no email on file</Alert>
+    <Alert variant="info" size="small" title="Dry run">No messages were sent.</Alert>
+    <Alert variant="error" size="small">Webhook returned 502</Alert>
+    <Banner>You are impersonating Nguyễn Văn An <span style={{textDecoration:'underline',cursor:'pointer'}}>Stop</span></Banner>
+  </div>
+  <div className="col" style={{gap:8}}>
+    <SnackBar variant="success" title="Segment created" message="seg_vip · 4 members" onCancel={()=>{}} onClose={()=>{}} duration={5000} />
+    <SnackBar variant="error" title="Could not save" message="Network error — retry in a moment" onClose={()=>{}} />
+    <div><SnackBar compact title="Đã lưu kết quả xử lý" /></div>
+  </div>
+  <div style={{width:260,border:'1px solid var(--t-border-color-medium)',borderRadius:8}}><EmptyState Icon="chart-pie" title="No segments" subtitle="Create a segment to group customers by rule." actionLabel="Add segment" /></div>
+</div>);}
+ReactDOM.createRoot(document.getElementById('root')).render(<Card />);
+</script></body></html>

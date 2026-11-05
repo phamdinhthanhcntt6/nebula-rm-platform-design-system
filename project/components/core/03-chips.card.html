@@ -1,0 +1,20 @@
+<!-- @dsCard group="2. Core" viewport="640x140" name="Chips" subtitle="Như trang Customers: person chip (rounded avatar, highlighted), label chip (avatar={false}), ValuePill cho phone/email" -->
+<!doctype html><html><head><meta charset="utf-8">
+<link rel="stylesheet" href="../../styles.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.34.1/dist/tabler-icons.min.css">
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+<script src="../../_ds_bundle.js"></script>
+<style>body{margin:0;padding:16px;background:var(--t-background-primary);font-family:var(--t-font-family);color:var(--t-font-color-primary);font-size:13px}.row{display:flex;align-items:center;flex-wrap:wrap;gap:8px}.col{display:flex;flex-direction:column;gap:12px}</style></head><body><div id="root"></div>
+<script type="text/babel">
+const DS = window.NebulaRMPlatformDesignSystem_5dfab2;
+const { Chip, ValuePill } = DS;
+const L = ({t}) => <span style={{fontSize:11,color:'var(--t-font-color-light)',width:92,flexShrink:0}}>{t}</span>;
+function Card(){return (<div className="col" style={{gap:10}}>
+  <div className="row"><L t="Person" /><Chip label="Nguyễn Minh Anh" avatarType="rounded" variant="highlighted" /><Chip label="Trần Quốc Huy" avatarType="rounded" variant="highlighted" /><Chip label="Lê Minh Châu" avatarType="rounded" /></div>
+  <div className="row"><L t="Label (no avatar)" /><Chip label="Chi nhánh Đà Nẵng" avatar={false} variant="highlighted" /><Chip label="Phòng ban C" avatar={false} variant="highlighted" /><Chip label="" avatar={false} variant="highlighted" /></div>
+  <div className="row"><L t="Value pill" /><ValuePill text="+84 867 452 398" /><ValuePill text="bui.khanh.linh@example.com" /></div>
+</div>);}
+ReactDOM.createRoot(document.getElementById('root')).render(<Card />);
+</script></body></html>

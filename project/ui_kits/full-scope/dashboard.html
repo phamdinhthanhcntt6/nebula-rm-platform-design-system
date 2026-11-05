@@ -1,0 +1,21 @@
+<!-- @dsCard group="9. UI kit" viewport="1452x869" name="Full Scope · Dashboard" subtitle="Trang tổng quan: lưới thẻ (DashCard / DashTile), banner trạng thái, mở panel việc tại chỗ" -->
+<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Full Scope</title>
+<link rel="stylesheet" href="../../styles.css">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@700&display=swap">
+<link rel="stylesheet" href="kit.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.34.1/dist/tabler-icons.min.css">
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+<script src="../../_ds_bundle.js"></script>
+</head><body>
+<script>/* Page-scoped app state: each kit page keeps rm-merged-* keys in memory so parallel cards never share/overwrite each other (and the user's storage is untouched). */
+(function(){const mem={"rm-merged-role":"broker","rm-merged-screen-customers":"dashboard","rm-merged-record":""};const P=Storage.prototype,g=P.getItem,s=P.setItem,r=P.removeItem,own=(k)=>/^rm-merged/.test(k);
+P.getItem=function(k){return own(k)?(k in mem?mem[k]:null):g.call(this,k)};P.setItem=function(k,v){if(own(k)){mem[k]=String(v);return}return s.call(this,k,v)};P.removeItem=function(k){if(own(k)){delete mem[k];return}return r.call(this,k)};})();</script>
+<div style="height:28px;box-sizing:border-box;border-bottom:1px solid var(--t-border-color-medium);background:var(--t-background-primary)"></div>
+<div id="root" style="position:relative;width:100%;height:calc(100vh - 28px);overflow:hidden;background:var(--t-gray-scale-gray3)"></div>
+<script type="text/babel" data-presets="react" src="rm-wf-01.build.src.txt"></script>
+<script type="text/babel" data-presets="react">
+ReactDOM.createRoot(document.getElementById('root')).render(<RmPlatformApp mode="customers" />);
+</script>
+</body></html>

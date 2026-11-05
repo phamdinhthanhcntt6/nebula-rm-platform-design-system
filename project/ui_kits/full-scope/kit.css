@@ -1,0 +1,23 @@
+html,body{height:100%;margin:0}
+a{color:var(--t-color-blue);text-decoration:none}a:hover{text-decoration:underline}
+textarea::placeholder,input::placeholder{color:var(--t-font-color-light);font-family:var(--t-font-family);font-weight:500;opacity:1}
+.no-agg>div>[role="row"]:last-child{display:none!important}
+.chip-x:hover{background:var(--t-accent-secondary)}
+[role="table"]>[role="row"]:first-child{position:sticky;top:0;z-index:10;background-color:var(--t-background-primary)}
+[role="table"]>[role="row"]>*{position:relative;z-index:3}
+[role="table"]>[role="row"]>:nth-child(1){position:sticky!important;left:0;z-index:8;background-color:var(--t-background-primary);box-shadow:-12px 0 0 0 var(--t-background-primary)}
+[role="table"]>[role="row"]>:nth-child(2){position:sticky!important;left:32px;z-index:8;background-color:var(--t-background-primary);box-shadow:var(--rt-hshadow,0 0 0 0 transparent);clip-path:inset(-1px -8px -1px 0)}
+[role="table"]>[role="row"]:first-child>:nth-child(1),[role="table"]>[role="row"]:first-child>:nth-child(2){z-index:14}
+.vp-shrink>button{min-width:0;max-width:100%!important}
+.no-add>div>[role="row"]:nth-last-child(2){display:none!important}
+.sel-off [role="checkbox"]{cursor:not-allowed!important}
+.sel-off [role="checkbox"]>span{background:var(--t-background-tertiary)!important;border-color:var(--t-border-color-medium)!important}
+.screen-switch{position:fixed;top:4px;left:8px;display:flex;flex-direction:column-reverse;align-items:flex-start;gap:4px;z-index:50}
+.screen-switch-toggle{white-space:nowrap;max-width:calc(100vw - 16px);overflow:hidden;text-overflow:ellipsis;display:flex;align-items:center;gap:6px;border:none;background:var(--t-background-primary-inverted);color:#fff;font:inherit;font-size:11px;font-weight:500;padding:2px 8px;height:20px;border-radius:6px;cursor:pointer;box-shadow:var(--t-box-shadow-strong)}
+.screen-switch-toggle .chev{color:var(--t-border-color-strong);font-size:10px}
+.screen-switch-menu{display:flex;flex-direction:column;gap:2px;padding:4px;background:var(--t-background-primary-inverted);border-radius:8px;box-shadow:var(--t-box-shadow-strong);max-height:60vh;overflow-y:auto}
+.screen-switch-menu button{border:none;background:transparent;color:var(--t-border-color-strong);font:inherit;font-size:12px;font-weight:500;text-align:left;padding:4px 10px;border-radius:6px;cursor:pointer;white-space:nowrap}
+.screen-switch-menu button:hover{background:var(--t-background-inverted-hover,rgba(255,255,255,.12));color:#fff}
+.screen-switch-menu button.on{background:var(--t-background-inverted-secondary);color:#fff}
+/* Demo switcher is a review-only tool, not product UI — hidden in the design system. */
+.screen-switch{display:none!important}

@@ -1,0 +1,16 @@
+/* Nebula / RM Platform (Twenty-based simplize-front, branch dev) — global CSS.
+   tokens/fonts.css      → Inter
+   tokens/theme-base.css → --t-* colors (light + dark scopes), shadows, blur
+   tokens/scale.css      → spacing, radius, font size/weight, icon, motion, layout */
+@import './tokens/fonts.css';
+@import './tokens/theme-base.css';
+@import './tokens/scale.css';
+
+/* simplize-front index.css: the whole app is scaled off a 13px root. */
+html { font-size: 13px; }
+body { margin: 0; font-family: var(--t-font-family); font-size: var(--t-font-size-md); color: var(--t-font-color-primary); background: var(--t-background-primary); -webkit-font-smoothing: antialiased; }
+a { color: var(--t-color-blue); text-decoration: none; }
+a:hover { text-decoration: underline; }
+* { scrollbar-width: thin; scrollbar-color: var(--t-border-color-medium) transparent; }
+*::-webkit-scrollbar { width: 4px; height: 4px; }
+*::-webkit-scrollbar-thumb { background: var(--t-border-color-medium); border-radius: var(--t-border-radius-md); }

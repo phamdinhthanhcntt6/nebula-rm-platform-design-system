@@ -1,0 +1,45 @@
+<!-- @dsCard group="3. Forms" viewport="700x640" name="Forms — input, textarea, select, radio, checkbox, toggle" subtitle="Như trang Customers: input 32px nền primary, focus viền xanh không halo, label 12px tertiary; inline 24px; radio group 32px; RichTextEditor cho nội dung dài nhiều block" -->
+<!doctype html><html><head><meta charset="utf-8">
+<link rel="stylesheet" href="../../styles.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.34.1/dist/tabler-icons.min.css">
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+<script src="../../_ds_bundle.js"></script>
+<style>body{margin:0;padding:16px;background:var(--t-background-primary);font-family:var(--t-font-family);color:var(--t-font-color-primary);font-size:13px}.row{display:flex;align-items:center;flex-wrap:wrap;gap:8px}.col{display:flex;flex-direction:column;gap:12px}.lbl{font-size:11px;font-weight:600;color:var(--t-font-color-light)}</style></head><body><div id="root"></div>
+<script type="text/babel">
+const DS = window.NebulaRMPlatformDesignSystem_5dfab2;
+const { TextInput, Checkbox, Toggle, Select, RadioGroup, RichTextEditor } = DS;
+function Card(){
+  const [c1,setC1]=React.useState(true); const [t1,setT1]=React.useState(true); const [s,setS]=React.useState('high'); const [r,setR]=React.useState('call');
+  return (<div className="col" style={{gap:16}}>
+  <div className="row" style={{alignItems:'flex-end',gap:12}}>
+    <TextInput label="Tên khách" placeholder="Nhập tên" style={{width:170}} />
+    <TextInput label="Email" defaultValue="an.nguyen@simplize.vn" style={{width:200}} />
+    <TextInput defaultValue="Sai định dạng" error="Email không hợp lệ" style={{width:150}} />
+    <TextInput defaultValue="Chỉ đọc" disabled style={{width:110}} />
+  </div>
+  <div className="row" style={{alignItems:'flex-start',gap:12}}>
+    <TextInput label="Ghi chú" multiline placeholder="Ghi rõ đã làm gì" style={{width:220}} />
+    <div className="col" style={{gap:8}}>
+      <span style={{fontSize:12,color:'var(--t-font-color-tertiary)'}}>Inline edit (sm, focus)</span>
+      <TextInput sizeVariant="sm" defaultValue="0867 452 398" autoFocus style={{width:160}} />
+    </div>
+    <Select label="Ưu tiên" value={s} onChange={setS} options={[{value:'high',label:'Cao',color:'red'},{value:'normal',label:'Thường',color:'gray'},{value:'low',label:'Thấp',color:'blue'}]} style={{width:150}} />
+    <div className="col" style={{gap:8}}>
+      <span style={{fontSize:12,color:'var(--t-font-color-tertiary)'}}>Inline (sm)</span>
+      <Select sizeVariant="sm" value="normal" options={[{value:'normal',label:'Thường',color:'gray'}]} />
+    </div>
+  </div>
+  <div style={{width:380}}><RichTextEditor label="Nội dung gửi khách" meta="Chưa có nội dung" placeholder="Nội dung gửi cho khách..." minHeight={72} /></div>
+  <div style={{width:380}}><RichTextEditor label="Nội dung gửi khách" meta="AI soạn từ mẫu Rà soát tiền mặt · v3" minHeight={48} initialHtml="<div>Chào anh Minh Anh,</div><div>Tài khoản hiện có <b>820 tr</b> tiền mặt nhàn rỗi.</div>" /></div>
+  <div className="row" style={{alignItems:'flex-start',gap:24}}>
+    <RadioGroup label="Bạn đã làm gì?" value={r} onChange={setR} options={[{value:'call',label:'Đã gọi khách'},{value:'msg',label:'Đã nhắn tin'},{value:'other',label:'Khác',hint:'Bắt buộc ghi chú'}]} style={{width:260}} />
+    <div className="col">
+      <span className="row" style={{gap:4}}><Checkbox checked={c1} onChange={setC1} ariaLabel="a" /><Checkbox checked={false} variant="secondary" ariaLabel="b" /><Checkbox checked indeterminate ariaLabel="c" /><Checkbox checked disabled ariaLabel="d" /></span>
+      <span className="row"><Toggle value={t1} onChange={setT1} ariaLabel="t" /><Toggle value={false} ariaLabel="t2" /><Toggle value toggleSize="small" ariaLabel="t3" /></span>
+    </div>
+  </div>
+</div>);}
+ReactDOM.createRoot(document.getElementById('root')).render(<Card />);
+</script></body></html>
