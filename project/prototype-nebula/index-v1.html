@@ -1,0 +1,39 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Sổ khách · Nebula v1</title>
+<link rel="stylesheet" href="../styles.css">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.34.1/dist/tabler-icons.min.css">
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js"></script>
+<script src="../_ds_bundle.js"></script>
+<script src="data.js"></script>
+<style>
+  html, body { margin: 0; height: 100%; background: var(--t-gray-scale-gray3); }
+  #root { height: 100vh; overflow: hidden; }
+  #boot-error { white-space: pre-wrap; font-family: ui-monospace, monospace; font-size: 12px;
+    color: #b42318; background: #fff4f3; border: 1px solid #ffcdcd; border-radius: 8px;
+    margin: 16px; padding: 12px; display: none; }
+  /* dense scrollbars inside the white panel */
+  *::-webkit-scrollbar { width: 10px; height: 10px; }
+  *::-webkit-scrollbar-thumb { background: var(--t-background-quaternary); border-radius: 6px; }
+</style>
+</head>
+<body>
+<pre id="boot-error"></pre>
+<div id="root"></div>
+<script>
+  // Surface compile/runtime errors on the page itself (curl can't catch Babel failures).
+  window.onerror = function (msg, src, line, col, err) {
+    var el = document.getElementById('boot-error');
+    el.style.display = 'block';
+    el.textContent = 'Lỗi: ' + msg + '\n' + (err && err.stack ? err.stack : ('' + src + ':' + line));
+  };
+</script>
+<script type="text/babel" data-presets="react" src="app-v1.jsx"></script>
+</body>
+</html>
