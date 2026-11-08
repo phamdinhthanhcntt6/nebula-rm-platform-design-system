@@ -7,7 +7,7 @@ var TH = {
   cutNear: 3, sector: 40, eventDays: 7, longLossPct: 20, longLossDays: 30,
   idSoon: 30, idUrgent: 3, surveyDays: 365, surveySoon: 30,
   bigMove: 10, moveDays: 7, idlePct: 30, idleDays: 14, tradeDrop: 50,
-  contact: { 'VIP': 14, 'Thân thiết': 30, 'Phổ thông': 45 }, overdueHigh: 2
+  contact: { 'VIP': 14, 'Thân thiết': 30, 'Phổ thông': 60 }, contactFactor: 1.5, overdueHigh: 2, newcomerDays: 7
 };
 var LEVELS = ['Khẩn', 'Cao', 'Cần chú ý', 'Chưa đủ dữ liệu', 'Ổn'];
 var CATS = {
@@ -74,14 +74,20 @@ function metrics(c) {
   return { A: A, Aproj: Aproj, debt: debt, nav: nav, ratio: ratio, proj: proj, projDate: projDate, projTicker: projTicker, buying: buying };
 }
 
+function depositFor(A, D, t) { return Math.max(0, D - A * (1 - t / 100)); }
+function needs(A, D) { return { force: depositFor(A, D, TH.force), call: depositFor(A, D, TH.call), safe: depositFor(A, D, TH.safe) }; }
 function lastContact(c) {
   var best = null;
-  c.events.forEach(function (e) { if (e.result === 'Hoàn thành' && (!best || e.at > best.at)) best = e; });
+  c.events.forEach(function (e) { if (e.result === 'Hoàn thành' && !e.bulk && (!best || e.at > best.at)) best = e; });
   return best;
 }
 function address(c) { return c.addr || (c.g === 'f' ? 'chị' : 'anh'); }
 function cap(s) { return s.charAt(0).toUpperCase() + s.slice(1); }
-function shortName(c) { var p = c.name.split(' '); return p[p.length - 1]; }
+function shortName(c) {
+  if (c.callName) return c.callName;
+  var p = c.name.split(' ');
+  return p.length >= 3 && p[p.length - 1] === 'Anh' ? p[p.length - 2] + ' Anh' : p[p.length - 1];   // 'Vũ Thị Lan Anh' → 'Lan Anh'
+}
 function callName(c) { return cap(address(c)) + ' ' + shortName(c); }
 
 function evaluate(c) {
@@ -97,7 +103,7 @@ function evaluate(c) {
       var big = c.holdings.slice().sort(function (x, y) { return val(y) - val(x); })[0];
       if (big) ev.push({ label: big.t + ' chiếm ' + pct(val(big) / m.A * 100, 0), tab: 'overview', row: 'h-' + big.t });
       if (r < TH.force) {
-        add({ cat: 1, code: 'V-11', level: 0, title: 'Sắp bị bán giải chấp', short: 'Tỷ lệ ký quỹ ' + pct(r) + ', dưới mức bán giải chấp ' + TH.force + '%',
+        add({ cat: 1, code: 'V-11', level: 0, need: needs(m.A, m.debt), minNeed: 'force', title: 'Sắp bị bán giải chấp', short: 'Tỷ lệ ký quỹ ' + pct(r) + ', dưới mức bán giải chấp ' + TH.force + '%',
           due: { date: TODAY, time: '14:30' }, why: 'Tỷ lệ ký quỹ đang ' + pct(r) + ', đã xuống dưới mức ' + TH.force + '%. Theo quy định, công ty sẽ tự bán cổ phiếu của khách để thu nợ.',
           then: 'Sau 14:30 hôm nay công ty tự bán cổ phiếu, thường ở giá xấu. Khách mất quyền chọn bán mã nào.',
           fix: 'Nộp thêm tiền hoặc bán bớt cổ phiếu ngay để đưa tỷ lệ về trên ' + TH.call + '%, tốt nhất là ' + TH.safe + '%.', evidence: ev, sol: 'margin',
@@ -105,7 +111,7 @@ function evaluate(c) {
         blocks.push({ state: 'now', what: 'Mua thêm, vay thêm', code: 'V-11' }); blocks.push({ state: 'will', what: 'Bán giải chấp sau 14:30 hôm nay', code: 'V-11' });
       } else if (r < TH.call) {
         var due = c.margin.callDate ? addDays(c.margin.callDate, 2) : addDays(TODAY, 2);
-        add({ cat: 1, code: 'V-12', level: 0, title: 'Đang bị call ký quỹ', short: 'Tỷ lệ ký quỹ ' + pct(r, 0) + ', đang bị call',
+        add({ cat: 1, code: 'V-12', level: dayDiff(TODAY, due) <= 1 ? 0 : 1, need: needs(m.A, m.debt), minNeed: 'call', title: 'Đang bị call ký quỹ', short: 'Tỷ lệ ký quỹ ' + pct(r, 0) + ', đang bị call',
           due: { date: due }, why: 'Tỷ lệ ký quỹ đang ' + pct(r, 0) + ', dưới mức call ' + TH.call + '%. Khách phải nộp thêm tiền hoặc bán bớt trước hạn.',
           then: 'Hết ngày ' + ddmm(due) + ' chưa đưa tỷ lệ lên trên ' + TH.call + '% thì công ty bán giải chấp. Trong lúc bị call, khách không được mua thêm.',
           fix: 'Nộp thêm tiền hoặc bán bớt cổ phiếu để tỷ lệ về ' + TH.safe + '%.', evidence: ev, sol: 'margin',
@@ -114,7 +120,7 @@ function evaluate(c) {
       } else if (m.proj != null && m.proj < TH.call) {
         var h = m.projTicker;
         ev.unshift({ label: h.t + ': tỷ lệ cho vay ' + h.loan.from + '% → ' + h.loan.to + '% từ ' + ddmm(h.loan.date), tab: 'overview', row: 'h-' + h.t });
-        add({ cat: 1, code: 'V-13', level: 0, title: 'Sắp bị call từ ' + ddmm(m.projDate), short: 'Dự kiến tỷ lệ ' + pct(m.proj, 0) + ' từ ' + ddmm(m.projDate) + ' (' + h.t + ' bị hạ tỷ lệ cho vay)',
+        add({ cat: 1, code: 'V-13', level: dayDiff(TODAY, m.projDate) <= 1 ? 0 : 1, need: needs(m.Aproj, m.debt), minNeed: 'call', title: 'Sắp bị call từ ' + ddmm(m.projDate), short: 'Dự kiến tỷ lệ ' + pct(m.proj, 0) + ' từ ' + ddmm(m.projDate) + ' (' + h.t + ' bị hạ tỷ lệ cho vay)',
           due: { date: m.projDate }, why: 'Tỷ lệ hiện ' + pct(r, 0) + '. ' + h.t + ' chiếm ' + pct(val(h) / m.A * 100, 0) + ' tài sản và từ ' + ddmm(h.loan.date) + ' chỉ được vay ' + h.loan.to + '% thay vì ' + h.loan.from + '%, nên tỷ lệ dự kiến còn ' + pct(m.proj, 0) + '.',
           then: 'Từ ' + ddmm(m.projDate) + ' tài khoản bị call; nếu không xử lý kịp có thể bị bán giải chấp.',
           fix: 'Trước ' + ddmm(m.projDate) + ': nộp thêm tiền hoặc bán bớt để tỷ lệ dự kiến về ' + TH.safe + '%.', evidence: ev, sol: 'margin', projected: true,
@@ -123,7 +129,7 @@ function evaluate(c) {
         blocks.push({ state: 'now', what: 'Vay thêm', code: 'V-13' });
       } else if (r < TH.safe) {
         var drop = (1 - m.debt / ((1 - TH.call / 100) * m.A)) * 100;
-        add({ cat: 1, code: r < TH.warn1 ? 'V-14' : 'V-15', level: r < TH.warn1 ? 1 : 2, title: r < TH.warn1 ? 'Sát mức call' : 'Tỷ lệ ký quỹ thấp',
+        add({ cat: 1, code: r < TH.warn1 ? 'V-14' : 'V-15', level: r < TH.warn1 ? 1 : 2, need: needs(m.A, m.debt), minNeed: 'safe', title: r < TH.warn1 ? 'Sát mức call' : 'Tỷ lệ ký quỹ thấp',
           short: 'Tỷ lệ ký quỹ ' + pct(r, 0) + ', giá giảm thêm ' + pct(drop, 0) + ' là bị call', due: null,
           why: 'Tỷ lệ đang ' + pct(r, 0) + '. Nếu giá danh mục giảm thêm khoảng ' + pct(drop, 0) + ' thì xuống dưới ' + TH.call + '%.',
           then: 'Giá giảm tiếp thì bị call. Đang dưới ' + TH.safe + '% nên không được vay thêm.',
@@ -214,7 +220,7 @@ function evaluate(c) {
       opener: N + ', CCCD của ' + a + ' đã hết hạn nên tài khoản đang bị chặn giao dịch. Em hướng dẫn cập nhật trên ứng dụng, chỉ mất vài phút.' });
     blocks.push({ state: 'now', what: 'Mọi giao dịch', code: 'V-31' });
   } else if (idd <= TH.idSoon) {
-    add({ cat: 3, code: 'V-32', level: idd <= TH.idUrgent ? 1 : 2, title: 'CCCD sắp hết hạn', short: 'CCCD còn ' + idd + ' ngày nữa hết hạn (' + ddmm(c.idExpiry) + ')',
+    add({ cat: 3, code: 'V-32', level: c.abroad && idd <= TH.idUrgent ? 1 : 2, title: 'CCCD sắp hết hạn', short: 'CCCD còn ' + idd + ' ngày nữa hết hạn (' + ddmm(c.idExpiry) + ')',
       due: { date: c.idExpiry }, why: 'CCCD hết hạn ngày ' + ddmmyyyy(c.idExpiry) + ', còn ' + idd + ' ngày.', then: 'Từ ' + ddmm(addDays(c.idExpiry, 1)) + ' tài khoản bị chặn, khách không mua bán được.',
       fix: 'Nhắc khách cập nhật CCCD trên ứng dụng trước ngày ' + ddmm(c.idExpiry) + '.', evidence: evId, sol: 'profile', unblock: 'id',
       opener: N + ', CCCD của ' + a + ' hết hạn ngày ' + ddmm(c.idExpiry) + '. ' + cap(a) + ' cập nhật trước để không bị chặn giao dịch nhé.' });
@@ -223,7 +229,7 @@ function evaluate(c) {
   var sExp = c.survey ? addDays(c.survey, TH.surveyDays) : null, sd = sExp ? dayDiff(TODAY, sExp) : -1;
   var evS = [{ label: c.survey ? 'Khảo sát ngày ' + ddmmyyyy(c.survey) : 'Chưa có khảo sát', tab: 'overview', row: 'prof-survey' }];
   if (sd < 0) {
-    add({ cat: 3, code: 'V-33', level: 1, title: 'Khảo sát khẩu vị đã quá hạn', short: c.survey ? 'Khảo sát quá hạn từ ' + ddmm(sExp) + ', đang bị chặn tư vấn mua' : 'Chưa làm khảo sát, đang bị chặn tư vấn mua',
+    add({ cat: 3, code: 'V-33', level: 2, title: 'Khảo sát khẩu vị đã quá hạn', short: c.survey ? 'Khảo sát quá hạn từ ' + ddmm(sExp) + ', đang bị chặn tư vấn mua' : 'Chưa làm khảo sát, đang bị chặn tư vấn mua',
       due: { date: sExp || TODAY }, why: c.survey ? 'Khảo sát làm ngày ' + ddmmyyyy(c.survey) + ', đã quá 12 tháng.' : 'Khách chưa làm khảo sát khẩu vị.',
       then: 'Broker không được tư vấn mua cho khách, kể cả khi khách hỏi.', fix: 'Gửi khách link làm lại khảo sát (khoảng 5 phút).', evidence: evS, sol: 'profile', unblock: 'survey',
       opener: N + ', phiếu khảo sát khẩu vị của ' + a + ' đã quá hạn, nên em tạm chưa tư vấn mua được. Em gửi link làm lại, khoảng 5 phút.' });
@@ -239,14 +245,15 @@ function evaluate(c) {
 
   var outs = c.txns.filter(function (t) { return (t.type === 'Rút tiền' || t.type === 'Chuyển cổ phiếu đi') && t.status !== 'Chờ khớp' && dayDiff(t.date, TODAY) <= TH.moveDays; });
   var outSum = outs.reduce(function (s, t) { return s + t.amt; }, 0);
-  if (outSum > 0 && outSum / (m.nav + outSum) * 100 >= TH.bigMove) {
+  var lcOut = lastContact(c);
+  if (outSum > 0 && outSum / (m.nav + outSum) * 100 >= TH.bigMove && !(lcOut && outs.every(function (t) { return lcOut.at.slice(0, 10) >= t.date; }))) {
     var share = outSum / (m.nav + outSum) * 100, t0 = outs[0];
     add({ cat: 4, code: 'V-41', level: 1, title: 'Vừa rút một khoản lớn', short: 'Rút ' + money(outSum) + ' (' + pct(share, 0) + ' tài sản) ngày ' + ddmm(t0.date),
       due: null, why: 'Ngày ' + ddmm(t0.date) + ' khách rút ' + moneyLong(outSum) + ', bằng ' + pct(share, 0) + ' tài sản trước khi rút.',
       then: 'Có thể khách cần tiền gấp, hoặc đang chuyển tiền sang nơi khác. Hỏi sớm thì còn kịp giữ khách.', fix: 'Gọi hỏi thăm nhu cầu của khách.',
       evidence: outs.map(function (t) { return { label: t.type + ' ' + money(t.amt) + ' ngày ' + ddmm(t.date), tab: 'overview', row: 'tx-' + t.id }; }), sol: 'ask',
-      ask: ['Khoản rút này để ' + a + ' làm gì, em có hỗ trợ được không?', cap(a) + ' có định rút thêm trong thời gian tới không?', 'Danh mục còn lại có cần cân lại cho hợp không?'],
-      opener: N + ', em thấy ngày ' + ddmm(t0.date) + ' ' + a + ' rút ' + moneyLong(outSum) + '. Em gọi hỏi xem ' + a + ' có kế hoạch gì để em hỗ trợ.' });
+      ask: [cap(a) + ' có kế hoạch gì cần em hỗ trợ không ạ?', 'Danh mục còn lại có cần cân lại cho hợp với kế hoạch của ' + a + ' không?'],
+      opener: N + ', em gọi hỏi thăm ' + a + '. Dạo này ' + a + ' có kế hoạch gì cần em hỗ trợ không ạ?' });
   }
   if (m.nav > 0 && c.cash / m.nav * 100 > TH.idlePct && (c.idleDays || 0) >= TH.idleDays)
     add({ cat: 4, code: 'V-42', level: 2, title: 'Tiền mặt nằm im lâu', short: money(c.cash) + ' tiền mặt nằm im ' + c.idleDays + ' ngày',
@@ -262,11 +269,18 @@ function evaluate(c) {
       opener: N + ', dạo này ' + a + ' ít giao dịch hơn. ' + cap(a) + ' đang chờ cơ hội hay có điều gì chưa ưng ý?' });
 
   var lc = lastContact(c);
-  if (!lc && !c.events.length) noData.push({ cat: 5, reason: 'Chưa có lần liên hệ nào được ghi' + (c.movedIn ? ' (khách chuyển về từ ' + ddmm(c.movedIn) + ')' : '') + '.' });
+  if (!lc && c.movedIn) {
+    var nd = addDays(c.movedIn, TH.newcomerDays);
+    add({ cat: 5, code: 'V-53', level: 2, title: 'Gọi làm quen khách mới chuyển về', short: 'Khách chuyển về từ ' + ddmm(c.movedIn) + ', chưa gọi làm quen (hạn ' + ddmm(nd) + ')',
+      due: { date: nd }, why: 'Khách chuyển về phụ trách từ ' + ddmm(c.movedIn) + ' và chưa có lần liên hệ nào. Tuần đầu là lúc khách quyết định có ở lại hay không.',
+      then: 'Khách không biết ai đang phụ trách mình, dễ rời đi.', fix: 'Gọi giới thiệu, hỏi mục tiêu, giờ nên liên hệ và cập nhật hồ sơ.', evidence: [], sol: 'ask',
+      ask: ['Em xin giới thiệu, từ nay em là người phụ trách tài khoản của ' + a + '.', cap(a) + ' thường tiện nghe máy vào giờ nào?', 'Mục tiêu đầu tư hiện tại của ' + a + ' là gì?'],
+      opener: N + ', em là Lan bên Simplize, từ nay em phụ trách tài khoản của ' + a + '. Em gọi làm quen và hỏi ' + a + ' cần em hỗ trợ gì.' });
+  } else if (!lc && !c.events.length) noData.push({ cat: 5, reason: 'Chưa có lần liên hệ nào được ghi.' });
   else if (lc) {
-    var th = TH.contact[c.tier], gap = dayDiff(lc.at, TODAY);
-    if (gap > th) add({ cat: 5, code: 'V-51', level: gap > 2 * th ? 1 : 2, title: gap + ' ngày chưa liên hệ', short: gap + ' ngày chưa liên hệ (' + c.tier + ' nên gọi mỗi ' + th + ' ngày)',
-      due: { date: addDays(lc.at, th) }, why: 'Lần cuối nói chuyện được với khách là ngày ' + ddmm(lc.at) + ', cách đây ' + gap + ' ngày. Khách ' + c.tier + ' nên được liên hệ ít nhất ' + th + ' ngày một lần.',
+    var th = c.cadence || TH.contact[c.tier], lim = Math.round(th * TH.contactFactor), gap = dayDiff(lc.at, TODAY);
+    if (gap > lim) add({ cat: 5, code: 'V-51', level: 2, title: gap + ' ngày chưa liên hệ', short: gap + ' ngày chưa liên hệ (' + (c.cadence ? 'khách chọn ' + th + ' ngày/lần' : c.tier + ' nên gọi mỗi ' + th + ' ngày') + ')',
+      due: { date: addDays(lc.at, lim) }, why: 'Lần cuối nói chuyện được với khách là ngày ' + ddmm(lc.at) + ', cách đây ' + gap + ' ngày. ' + (c.cadence ? 'Khách chọn nhịp ' + th + ' ngày một lần' : 'Khách ' + c.tier + ' nên được liên hệ ' + th + ' ngày một lần') + '; báo khi quá ' + lim + ' ngày.',
       then: 'Khách thấy bị bỏ quên, dễ chuyển sang broker khác.', fix: 'Gọi hỏi thăm, cập nhật tình hình tài khoản.',
       evidence: [{ label: 'Lần liên hệ ' + ddmm(lc.at), tab: 'history', row: 'ev-' + lc.id }], sol: 'ask',
       ask: ['Dạo này ' + a + ' có kế hoạch gì mới với tài khoản không?', 'Có điều gì em chưa hỗ trợ tốt không?'],
@@ -282,6 +296,12 @@ function evaluate(c) {
       opener: N + ', hôm ' + ddmm(t.due) + ' em hẹn ' + t.title.toLowerCase() + '. Em xin lỗi vì liên hệ muộn.' });
   });
 
+  c.tasks.filter(function (t) { return !t.done && t.kind === 'notify' && t.due.slice(0, 10) >= TODAY; }).forEach(function (t) {
+    add({ cat: 5, code: 'V-54', key: t.id, level: 2, title: t.title, short: t.title + ' (hạn ' + hhmm(t.due) + ' ' + ddmm(t.due) + ')',
+      due: { date: t.due.slice(0, 10), time: hhmm(t.due) }, why: 'Broker đã huỷ một hẹn với khách; khách chưa được báo.', then: 'Khách vẫn chờ cuộc gọi đã hẹn, coi là thất hứa.',
+      fix: 'Gọi hoặc nhắn khách báo đã huỷ hẹn, hẹn lại nếu khách cần.', evidence: [{ label: 'Việc ' + ddmm(t.due), tab: 'history', row: 'task-' + t.id }], sol: 'ask', task: t,
+      ask: [cap(a) + ' có muốn hẹn lại vào lúc khác không?'], opener: N + ', em gọi báo cuộc hẹn hôm trước em xin huỷ. ' + cap(a) + ' có muốn hẹn lại lúc khác không?' });
+  });
   out.sort(function (x, y) { return x.level - y.level || dueKey(x) - dueKey(y); });
   var status = out.length ? out[0].level : (noData.length ? 3 : 4);
   return { issues: out, noData: noData, blocks: blocks, status: status, top: out[0] || null, m: m };
@@ -307,12 +327,19 @@ function solutions(c, issue, ev) {
     var cur = (A - D) / A * 100;
     var X = Math.max(0, D - A * (1 - t));
     var S = Math.max(0, A - (A - D) / t);
-    res.can = ['Nộp thêm tiền', 'Bán bớt cổ phiếu']; res.cannot = ['Mua thêm', 'Vay thêm'];
-    res.options.push({ kind: 'choose', title: 'Nộp thêm ' + moneyLong(Math.ceil(X)), rows: [['Làm gì', 'Chuyển tiền vào tài khoản chứng khoán'], ['Bao nhiêu', moneyLong(Math.ceil(X))], ['Sau đó', 'Tỷ lệ ' + (issue.projected ? 'dự kiến ' : '') + 'từ ' + pct(cur, 0) + ' về ' + TH.safe + '%']], fit: { ok: true, text: 'Hợp khẩu vị (' + appetite + ')' } });
+    var nd2 = needs(A, D), mrow = [];
+    if (cur < TH.force) mrow.push(['Khỏi bị bán', 'Tối thiểu ' + moneyLong(Math.ceil(nd2.force)) + ' (về ' + TH.force + '%)']);
+    if (cur < TH.call) mrow.push(['Hết call', moneyLong(Math.ceil(nd2.call)) + ' (về ' + TH.call + '%)']);
+    mrow.push(['Về an toàn', moneyLong(Math.ceil(nd2.safe)) + ' (về ' + TH.safe + '%)']);
+    res.can = ['Nộp thêm tiền', 'Bán bớt cổ phiếu'];
+    res.cannot = issue.projected ? ['Vay thêm'] : cur < TH.call ? ['Mua thêm', 'Vay thêm'] : ['Vay thêm'];
+    res.soon = issue.projected ? ['Mua thêm (từ ' + ddmm(m.projDate) + ')'] : [];
+    var minKey = cur < TH.force ? 'force' : cur < TH.call ? 'call' : 'safe';
+    res.options.push({ kind: 'choose', title: 'Nộp thêm tiền: tối thiểu ' + moneyLong(Math.ceil(nd2[minKey])), rows: [['Làm gì', 'Chuyển tiền vào tài khoản chứng khoán']].concat(mrow).concat([['Sau đó', 'Tỷ lệ ' + (issue.projected ? 'dự kiến ' : '') + 'từ ' + pct(cur, 0) + ' lên mức khách chọn']]), fit: { ok: true, text: 'Hợp khẩu vị (' + appetite + ')' } });
     c.holdings.slice().sort(function (x, y) { return val(y) - val(x); }).slice(0, 2).forEach(function (h) {
       var p = priceOf(h), need = Math.ceil(S * 1e6 / p / 100) * 100, enough = need <= h.qty, q = Math.min(need, h.qty), amount = q * p / 1e6;
       var after = (A - amount - (D - amount)) / (A - amount) * 100;
-      res.options.push({ kind: 'order', side: 'Bán', t: h.t, qty: q, title: 'Bán ' + fmt(q) + ' cổ phiếu ' + h.t, rows: [['Làm gì', 'Bán ' + h.t + ', tiền bán dùng trả nợ'], ['Bao nhiêu', fmt(q) + ' cổ phiếu × ' + fmt(p) + ' ≈ ' + moneyLong(amount)], ['Sau đó', 'Tỷ lệ về ' + pct(after, 0) + (enough ? '' : ' (bán hết ' + h.t + ' vẫn chưa đủ, cần bán thêm mã khác)')], ['Lãi/lỗ khi bán', ((p - h.cost) / h.cost * 100 >= 0 ? 'Lãi ' : 'Lỗ ') + pct(Math.abs((p - h.cost) / h.cost * 100), 0) + ' trên phần bán']], fit: { ok: true, text: 'Hợp — giảm rủi ro' } });
+      res.options.push({ kind: 'order', side: 'Bán', t: h.t, qty: q, title: 'Bán ' + fmt(q) + ' cổ phiếu ' + h.t, rows: [['Làm gì', 'Bán ' + h.t + ', tiền bán dùng trả nợ'], ['Bao nhiêu', fmt(q) + ' cổ phiếu × ' + fmt(p) + ' ≈ ' + moneyLong(amount)], ['Sau đó', enough ? 'Tỷ lệ về ' + pct(after, 0) : 'Tỷ lệ về ' + pct(Math.floor(after * 10) / 10, 1) + ' — bán hết ' + h.t + ' vẫn dưới ' + TH.safe + '%, cần bán thêm mã khác hoặc nộp thêm'], ['Lãi/lỗ khi bán', ((p - h.cost) / h.cost * 100 >= 0 ? 'Lãi ' : 'Lỗ ') + pct(Math.abs((p - h.cost) / h.cost * 100), 0) + ' trên phần bán']], fit: { ok: true, text: 'Hợp — giảm rủi ro' } });
     });
     res.options.push({ kind: 'locked', title: 'Mua thêm để hạ giá vốn', lockReason: 'Bị chặn: tỷ lệ ký quỹ dưới ' + TH.safe + '% thì không được vay thêm (điều 7). Mua thêm còn làm tỷ lệ thấp hơn.' });
   } else if (issue.sol === 'cutloss' || issue.sol === 'target') {
@@ -333,7 +360,12 @@ function solutions(c, issue, ev) {
     res.options.push({ kind: 'choose', title: 'Giữ nguyên, ghi lại khách chấp nhận rủi ro', rows: [['Làm gì', 'Ghi vào sự kiện rằng khách hiểu và chấp nhận'], ['Sau đó', 'Không nhắc lại trong [30] ngày']], fit: appetite === 'Thận trọng' ? { ok: false, text: 'Lệch khẩu vị (' + appetite + ')' } : { ok: true, text: 'Hợp khẩu vị (' + appetite + ')' } });
     res.options.push({ kind: 'locked', title: 'Gợi ý mã khác để mua thay', lockReason: 'Công cụ không gợi ý mã mới (điều 8).' });
   } else if (issue.sol === 'profile') {
-    res.can = ['Hướng dẫn khách tự cập nhật']; res.cannot = issue.unblock === 'survey' ? ['Tư vấn mua cho tới khi làm lại khảo sát'] : ['Đặt lệnh cho tới khi cập nhật CCCD'];
+    res.can = ['Hướng dẫn khách tự cập nhật'];
+    var nowBlocked = issue.code === 'V-31' || issue.code === 'V-33';
+    var what = issue.unblock === 'survey' ? 'Tư vấn mua' : 'Mọi giao dịch';
+    var from = issue.code === 'V-32' ? ddmm(addDays(c.idExpiry, 1)) : issue.code === 'V-34' ? ddmm(addDays(addDays(c.survey, TH.surveyDays), 1)) : '';
+    res.cannot = nowBlocked ? [what + ' (cho tới khi ' + (issue.unblock === 'survey' ? 'làm lại khảo sát' : 'cập nhật CCCD') + ')'] : [];
+    res.soon = nowBlocked ? [] : [what + ' từ ' + from + ' nếu chưa ' + (issue.unblock === 'survey' ? 'làm lại khảo sát' : 'cập nhật CCCD') + ' — hôm nay vẫn làm được'];
     if (issue.unblock === 'id') res.options.push({ kind: 'action', title: 'Hẹn khách ra quầy cập nhật CCCD', rows: [['Làm gì', 'Tạo sự kiện Đã lên lịch']], fit: null });
   } else {
     res.can = ['Hỏi thăm, ghi lại cuộc gọi']; res.cannot = [];
@@ -489,7 +521,7 @@ function build() {
 
 root.SK = {
   CYCLE: CYCLE, TODAY: TODAY, TH: TH, LEVELS: LEVELS, CATS: CATS, TK: TK, CORP: CORP, SAMPLE_NOTES: SAMPLE_NOTES,
-  build: build, evaluate: evaluate, solutions: solutions, metrics: metrics, lastContact: lastContact,
-  util: { dayDiff: dayDiff, addDays: addDays, ddmm: ddmm, ddmmyyyy: ddmmyyyy, hhmm: hhmm, fmt: fmt, money: money, moneyLong: moneyLong, pct: pct, priceOf: priceOf, val: val, sectorOf: sectorOf, address: address, callName: callName, cap: cap }
+  build: build, evaluate: evaluate, solutions: solutions, metrics: metrics, lastContact: lastContact, needs: needs,
+  util: { dayDiff: dayDiff, addDays: addDays, ddmm: ddmm, ddmmyyyy: ddmmyyyy, hhmm: hhmm, fmt: fmt, money: money, moneyLong: moneyLong, pct: pct, priceOf: priceOf, val: val, sectorOf: sectorOf, address: address, callName: callName, shortName: shortName, cap: cap }
 };
 })(typeof window !== 'undefined' ? window : globalThis);
