@@ -7,7 +7,7 @@ const {
   RecordTable, Tabs, Button, IconButton, Chip, Tag, Pill, Avatar, Radio, RadioGroup, Checkbox, Select, TextInput,
   KpiTile, KVRow, BlockCard, Card, CardContent, EmptyState, InlineNotice, Icon,
   SidePanel, PanelFootRow, SuggestionCard, PanelSection, LightButton,
-  DropdownMenu, MenuItem, MenuItemSeparator, StatusBanners, AiMark, QuoteBox, PanelItemRow, PanelListRow, PanelIdentityHeader, SnackBar, Dialog,
+  DropdownMenu, MenuItem, MenuItemSeparator, StatusBanners, BlockState, AiMark, QuoteBox, PanelItemRow, PanelListRow, PanelIdentityHeader, SnackBar, Dialog,
 } = DS;
 
 const S = window.SK, U = S.util, TODAY = S.TODAY, TH = S.TH, LEVELS = S.LEVELS, CATS = S.CATS;
@@ -30,7 +30,8 @@ const DB = S.build();
 })();
 const EV = {}, BY = {};
 DB.forEach(function (c) { EV[c.id] = S.evaluate(c); BY[c.id] = c; });
-function reval(c) { EV[c.id] = S.evaluate(c); }
+// statusOverride: broker đổi trạng thái tay khi chốt phương án (demo) — giữ qua các lần tính lại
+function reval(c) { EV[c.id] = S.evaluate(c); if (c.statusOverride != null) EV[c.id].status = c.statusOverride; }
 function unPrefill(u) { return { un: u, channel: u.dir === 'Khách gọi đến' ? 'Khách gọi đến' : 'Gọi đi', content: u.dir + ' (' + u.dur + ')', at: u.at, status: 'Hoàn thành' }; }
 function nowHM() { const t = new Date(); return String(t.getHours()).padStart(2, '0') + ':' + String(t.getMinutes()).padStart(2, '0'); }
 
@@ -151,7 +152,6 @@ function Drawer(props) {
   return React.createElement(NavigationDrawer, { header: React.createElement(NavigationDrawerHeader, { workspaceName: 'Simplize', notifications: 3 }) },
     React.createElement(NavigationDrawerSection, null,
       item({ label: 'Tìm kiếm', Icon: 'search', variant: 'tertiary', onClick: function () { focusSearch(); } }),
-      item({ label: 'Bàn làm việc', Icon: 'layout-dashboard', count: morningCount(), active: sc === 'home' || sc === 'today', onClick: go('') }),
     ),
     React.createElement(NavigationDrawerSection, null,
       React.createElement(NavigationDrawerSectionTitle, { label: 'Quản lý khách' }),
@@ -165,10 +165,7 @@ function Drawer(props) {
       item(Object.assign({ label: 'Hộp thoại', Icon: 'messages', active: sc === 'hop-thoai', onClick: go('hop-thoai') }, tile('turquoise'))),
       item(Object.assign({ label: 'Nhật ký tuân thủ', Icon: 'shield-check', active: sc === 'audit', onClick: go('nhat-ky') }, tile('violet'))),
     ),
-    React.createElement(NavigationDrawerSection, null,
-      React.createElement(NavigationDrawerSectionTitle, { label: 'Bản mẫu' }),
-      item(Object.assign({ label: 'Kịch bản demo', Icon: 'player-play', count: SCENARIOS.reduce(function (a, g) { return a + g.items.length; }, 0), active: sc === 'demo', onClick: go('kich-ban') }, tile('green'))),
-    ),
+    // Mục "Bản mẫu → Kịch bản demo" đã bỏ theo yêu cầu user 2026-11-09 (SCENARIOS/DemoScreen còn trong code, không có đường vào)
   );
 }
 
@@ -270,7 +267,17 @@ function CustomerPanel(props) {
     : React.createElement('span', { style: Object.assign({ color: ratioColor(m.ratio), fontWeight: 500 }, num) }, U.pct(m.ratio, 0) + ((m.proj != null && m.proj < TH.call) ? ' → ' + U.pct(m.proj, 0) + ' từ ' + U.ddmm(m.projDate) : ''));
   const ctx = props.context;
   const [, setTick] = React.useState(0);
+  // Panel con "Tạo việc": mở đè trong cùng khung panel, nút ← quay lại panel khách
+  const [evt, setEvt] = React.useState(function () { return /\.p=\w+\.evt$/.test(location.hash) ? { status: 'Đã lên lịch' } : null; });
+  const firstId = React.useRef(props.id);
+  React.useEffect(function () { if (props.id !== firstId.current) { firstId.current = props.id; setEvt(null); } }, [props.id]);
   const others = e.issues.slice(1);
+  if (evt) return React.createElement(EventPanel, {
+    key: 'pevt-' + c.id, customer: c, prefill: evt, width: 400,
+    onBack: function () { setEvt(null); },
+    onClose: props.onClose,
+    onSaved: function (msg) { setEvt(null); showToast(msg); if (props.onRefresh) props.onRefresh(); setTick(function (x) { return x + 1; }); },
+  });
   return React.createElement(SidePanel, {
     width: 400,
     identity: React.createElement(React.Fragment, null,
@@ -284,8 +291,12 @@ function CustomerPanel(props) {
         React.createElement('span', { style: { flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' } }, ctx.text),
         ctx.label ? React.createElement(LightButton, { title: ctx.label, accent: 'blue', onClick: go(ctx.go) }) : null) : null),
     foot: React.createElement(PanelFootRow, { note: '' },
-      React.createElement(Button, { title: 'Tạo việc', variant: 'secondary', size: 'small', Icon: 'checkbox', onClick: go('khach-' + c.id + '.issues.evt') }),
-      React.createElement(Button, { title: 'Gọi khách', accent: 'blue', size: 'small', Icon: 'phone', onClick: go('khach-' + c.id + '.issues.call') })),
+      React.createElement(Button, { title: 'Tạo việc', variant: 'secondary', size: 'small', Icon: 'checkbox', onClick: function () { const ot = overdueTask(c); setEvt(ot ? { task: ot, content: ot.title, channel: ot.channel, status: 'Dời lịch' } : { status: 'Đã lên lịch' }); } }),
+      React.createElement(Button, { title: 'Gọi khách', accent: 'blue', size: 'small', Icon: 'phone', onClick: function () {
+        // Ghi cuộc gọi ngay trong panel (không rời danh sách) — giống "Tạo việc"
+        const ot = overdueTask(c), it = e.top ? e.top.title : '';
+        setEvt(ot ? { task: ot, content: ot.title, channel: 'Gọi đi', status: 'Hoàn thành', issueTitle: it } : { status: 'Hoàn thành', channel: 'Gọi đi', issueTitle: it });
+      } })),
   },
     e.top
       ? React.createElement(SuggestionCard, { title: 'Việc cần làm ngay',
@@ -618,6 +629,22 @@ const ALERT_DEFS = [
     rule: 'Luật Bảo vệ dữ liệu cá nhân (hiệu lực 1/1/2026) · TT 73/2020',
     fix: ['Hỏi đồng ý ghi âm ở đầu cuộc gọi, tick xác nhận trong form ghi sự kiện.', 'Khách từ chối: không tư vấn đặt lệnh qua điện thoại, hẹn gặp trực tiếp.'] },
 ];
+// Thông báo cho khách theo nhóm cảnh báo: câu mở + giải pháp chung để broker tự chọn gửi kèm
+const ALERT_NOTICE = {
+  'ky-quy': { msg: 'Tài khoản ký quỹ của anh/chị đang ở dưới hoặc sát mức yêu cầu.', opts: ['Nộp thêm tiền vào tài khoản', 'Bán bớt một phần cổ phiếu để giảm dư nợ', 'Trả bớt nợ vay ký quỹ', 'Liên hệ broker để được tư vấn phương án phù hợp'] },
+  'cccd': { msg: 'CCCD đăng ký với tài khoản của anh/chị đã hoặc sắp hết hạn.', opts: ['Cập nhật CCCD trên ứng dụng Simplize', 'Cập nhật tại quầy giao dịch', 'Liên hệ broker để được hướng dẫn'] },
+  'khao-sat': { msg: 'Phiếu khảo sát khẩu vị đầu tư của anh/chị đã hoặc sắp hết hiệu lực.', opts: ['Làm lại khảo sát trên ứng dụng (khoảng 5 phút)', 'Đặt lịch để broker gọi hỗ trợ làm khảo sát', 'Liên hệ broker nếu cần giải thích'] },
+  'lien-he': { msg: 'Đã khá lâu broker chưa trao đổi với anh/chị về tài khoản.', opts: ['Đặt lịch hẹn gọi với broker', 'Xem báo cáo danh mục trên ứng dụng', 'Trả lời tin nhắn này để broker gọi lại'] },
+  'dong-tien': { msg: 'Broker muốn trao đổi với anh/chị về kế hoạch dòng tiền.', opts: ['Đặt lịch hẹn gọi với broker', 'Tìm hiểu sản phẩm sinh lời cho tiền nhàn rỗi', 'Trả lời tin nhắn này để broker gọi lại'] },
+  'danh-muc': { msg: 'Danh mục của anh/chị có thay đổi cần rà soát lại.', opts: ['Xem lại điểm cắt lỗ / chốt lời đã đặt', 'Xem sự kiện quyền sắp tới trên ứng dụng', 'Đặt lịch hẹn gọi với broker để rà soát'] },
+  'ghi-am': { msg: 'Broker cần trao đổi với anh/chị qua điện thoại về tài khoản.', opts: ['Xác nhận đồng ý ghi âm cuộc gọi trên ứng dụng', 'Đặt lịch hẹn gọi với broker', 'Hẹn gặp trực tiếp tại quầy'] },
+};
+function noticeText(c, d, opts) {
+  const N = ALERT_NOTICE[d.id] || { msg: d.title + '.' };
+  const cn = U.callName(c);
+  return 'Chào ' + cn.charAt(0).toLowerCase() + cn.slice(1) + ', ' + N.msg.charAt(0).toLowerCase() + N.msg.slice(1)
+    + (opts.length ? '\nAnh/chị có thể:\n' + opts.map(function (o) { return '• ' + o; }).join('\n') : '');
+}
 function alertGroups() {
   const out = [];
   ALERT_DEFS.forEach(function (d) {
@@ -658,9 +685,34 @@ function AlertDialog(props) {
   const label = function (t) { return React.createElement('div', { style: { fontSize: 'var(--t-font-size-sm)', fontWeight: 500, color: 'var(--t-font-color-tertiary)' } }, t); };
   const urgent = g.members.filter(function (m) { return m.i && m.i.level <= 1; }).length;
   const firstDue = g.members[0].i && g.members[0].i.due ? timeLeft(g.members[0].i.due) : null;
-  const primary = d.primary === 'bulk'
-    ? { title: 'Gửi nhắc cho ' + sel.length + ' khách', disabled: !sel.length, onClick: function () { props.onBulk(sel); } }
-    : { title: 'Gọi ' + g.members[0].c.name, onClick: function () { location.hash = 'khach-' + g.members[0].c.id + '.issues.call'; } };
+  // Kênh thông báo: Email + App luôn gửi được; Chat (Zalo) / SMS cần khách đã đồng ý nhận tin
+  const CHANNELS = [
+    { id: 'Email', Icon: 'mail', ok: function () { return true; } },
+    { id: 'Chat Zalo', Icon: 'message-circle', ok: function (c) { return c.consent.zalo; } },
+    { id: 'SMS', Icon: 'message', ok: function (c) { return c.consent.sms; } },
+    { id: 'App', Icon: 'bell', ok: function () { return true; } },
+  ];
+  const [chan, setChan] = React.useState('Email');
+  const OPTS = (ALERT_NOTICE[d.id] || { opts: [] }).opts;
+  const [optOn, setOptOn] = React.useState(function () { const o = {}; OPTS.slice(0, 2).forEach(function (x) { o[x] = true; }); return o; });
+  const [otherOn, setOtherOn] = React.useState(false);
+  const [otherText, setOtherText] = React.useState('');
+  const optSel = OPTS.filter(function (x) { return optOn[x]; }).concat(otherOn && otherText.trim() ? [otherText.trim()] : []);
+  const chosen = CHANNELS.filter(function (ch) { return ch.id === chan; });
+  const reach = function (c) { return chosen.filter(function (ch) { return ch.ok(c); }).map(function (ch) { return ch.id; }); };
+  const selC = sel.map(function (id) { return BY[id]; });
+  const sendable = selC.filter(function (c) { return reach(c).length; });
+  const send = function () {
+    sendable.forEach(function (c) {
+      const via = reach(c);
+      // Tin thông báo chỉ ghi "Đã gửi tin" — không tính là đã liên hệ
+      c.events.push({ id: 'n' + Date.now() + c.id, at: TODAY + 'T' + nowHM(), loggedAt: TODAY, bulk: true, channel: via.join(', '), broker: 'Chị Lan', purpose: 'Thông báo theo cảnh báo', result: 'Đã gửi tin', note: noticeText(c, d, optSel), issueTitle: d.title });
+      reval(c);
+    });
+    audit('Gửi thông báo theo cảnh báo', d.title + ' · ' + chan + ' · ' + sendable.length + ' khách' + (optSel.length ? ' · giải pháp: ' + optSel.join('; ') : ''),sendable.map(function (c) { return c.id; }));
+    props.onSent(sendable.length, selC.length - sendable.length);
+  };
+  const primary = { title: 'Gửi thông báo' + (sendable.length ? ' (' + sendable.length + ')' : ''), Icon: 'send', disabled: !sendable.length, onClick: send };
   return React.createElement(Dialog, {
     title: d.title + ' · ' + g.members.length + ' khách', Icon: 'alert-triangle', iconColor: g.tone === 'block' ? 'var(--t-tag-text-red)' : g.tone === 'warn' ? 'var(--t-tag-text-yellow)' : 'var(--t-tag-text-blue)',
     width: 560, footerAlign: 'end', onClose: props.onClose,
@@ -679,12 +731,12 @@ function AlertDialog(props) {
       d.rule ? React.createElement('span', { style: { fontSize: 'var(--t-font-size-sm)', color: 'var(--t-font-color-tertiary)' } }, 'Căn cứ: ' + d.rule) : null),
     // 2. Danh sách khách
     React.createElement('div', { style: { display: 'flex', flexDirection: 'column', gap: 'var(--t-spacing-1)' } },
-      label('Danh sách khách · ' + g.members.length + (d.primary === 'bulk' ? ' · đã chọn ' + sel.length : '')),
+      label('Danh sách khách · ' + g.members.length + ' · đã chọn ' + sel.length),
       React.createElement('div', { style: { border: '1px solid var(--t-border-color-light)', borderRadius: 'var(--t-border-radius-sm)', maxHeight: 280, overflowY: 'auto' } },
         g.members.map(function (m, idx) {
           const tl = m.i && m.i.due ? timeLeft(m.i.due) : null;
           return React.createElement('div', { key: m.c.id, style: { display: 'flex', alignItems: 'center', gap: 'var(--t-spacing-2)', minHeight: 44, padding: 'var(--t-spacing-1) var(--t-spacing-2)', borderTop: idx ? '1px solid var(--t-border-color-light)' : 'none' } },
-            d.primary === 'bulk' ? React.createElement(Checkbox, { checked: !!picked[m.c.id], ariaLabel: 'Chọn', onChange: function () { setPicked(function (o) { const n = Object.assign({}, o); n[m.c.id] = !n[m.c.id]; return n; }); } }) : null,
+            true ? React.createElement(Checkbox, { checked: !!picked[m.c.id], ariaLabel: 'Chọn', onChange: function () { setPicked(function (o) { const n = Object.assign({}, o); n[m.c.id] = !n[m.c.id]; return n; }); } }) : null,
             React.createElement('span', { style: { flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 2 } },
               React.createElement('span', { style: { display: 'flex', alignItems: 'center', gap: 'var(--t-spacing-2)' } },
                 React.createElement(Chip, { label: m.c.name, avatarType: 'rounded', onClick: function () { props.onOpenCustomer(m.c.id); } }),
@@ -693,14 +745,31 @@ function AlertDialog(props) {
             tl ? React.createElement('span', { style: { flexShrink: 0, fontSize: 'var(--t-font-size-sm)', fontWeight: 500, whiteSpace: 'nowrap', color: tl.late ? 'var(--t-tag-text-red)' : 'var(--t-font-color-secondary)' } }, tl.text) : null,
             React.createElement(LightButton, { title: 'Mở', Icon: 'arrow-up-right', accent: 'tertiary', onClick: function () { props.onOpenCustomer(m.c.id); } }));
         }))),
-    // 3. Cách giải quyết
+    // 3. Giải pháp gửi kèm (broker tự chọn) + xem trước tin
+    OPTS.length ? React.createElement('div', { style: { display: 'flex', flexDirection: 'column', gap: 'var(--t-spacing-1)' } },
+      label('Giải pháp gửi kèm · đã chọn ' + optSel.length),
+      OPTS.map(function (x) {
+        const toggle = function () { setOptOn(function (o) { const n = Object.assign({}, o); n[x] = !n[x]; return n; }); };
+        return React.createElement('div', { key: x, onClick: toggle, style: { display: 'flex', alignItems: 'center', gap: 'var(--t-spacing-1)', cursor: 'pointer', lineHeight: 1.4 } },
+          React.createElement('span', { onClick: function (ev) { ev.stopPropagation(); } }, React.createElement(Checkbox, { checked: !!optOn[x], ariaLabel: x, onChange: toggle })),
+          React.createElement('span', null, x));
+      }),
+      // Khác: broker tự nhập giải pháp
+      React.createElement('div', { onClick: function () { setOtherOn(!otherOn); }, style: { display: 'flex', alignItems: 'center', gap: 'var(--t-spacing-1)', cursor: 'pointer', lineHeight: 1.4 } },
+        React.createElement('span', { onClick: function (ev) { ev.stopPropagation(); } }, React.createElement(Checkbox, { checked: otherOn, ariaLabel: 'Khác', onChange: function () { setOtherOn(!otherOn); } })),
+        React.createElement('span', null, 'Khác')),
+      otherOn ? React.createElement('div', { style: { paddingLeft: 26 } },
+        React.createElement(TextInput, { fullWidth: true, value: otherText, onChange: setOtherText, placeholder: 'Nhập giải pháp muốn gửi kèm cho khách' })) : null) : null,
+    selC.length ? React.createElement('div', { style: { display: 'flex', flexDirection: 'column', gap: 'var(--t-spacing-1)' } },
+      label('Xem trước tin gửi'),
+      React.createElement(QuoteBox, null, React.createElement('span', { style: { whiteSpace: 'pre-line' } }, noticeText(selC[0], d, optSel)))) : null,
+    // 4. Kênh thông báo
     React.createElement('div', { style: { display: 'flex', flexDirection: 'column', gap: 'var(--t-spacing-1)' } },
-      label('Cách giải quyết'),
-      React.createElement('ol', { style: { margin: 0, paddingLeft: 20, display: 'flex', flexDirection: 'column', gap: 'var(--t-spacing-1)', lineHeight: 1.5 } },
-        d.fix.map(function (f, i) { return React.createElement('li', { key: i }, f); }))),
-    d.primary === 'call'
-      ? React.createElement(InlineNotice, { tone: 'warn', title: 'Xử lý riêng từng khách' }, 'Nhóm này cần gọi trực tiếp — không gửi tin hàng loạt. Bấm tên khách để mở panel và gọi.')
-      : React.createElement(InlineNotice, { tone: 'empty', title: 'Gửi nhắc hàng loạt được' }, 'Chỉ là tin nhắc theo mẫu đã duyệt; khách chưa đồng ý nhận tin sẽ tự bị loại ở bước gửi.'));
+      React.createElement(RadioGroup, { label: 'Gửi thông báo qua', row: true, value: chan, onChange: setChan,
+        options: CHANNELS.map(function (ch) { return { value: ch.id, label: ch.id + ' (' + selC.filter(function (c) { return ch.ok(c); }).length + '/' + selC.length + ')' }; }) }),
+      React.createElement('span', { style: { fontSize: 'var(--t-font-size-sm)', color: sendable.length < selC.length ? 'var(--t-tag-text-orange)' : 'var(--t-font-color-tertiary)' } },
+        sendable.length < selC.length ? (selC.length - sendable.length) + ' khách chưa đồng ý nhận tin qua ' + chan + ' — sẽ bị bỏ qua.'
+          : 'Gửi cho ' + sendable.length + ' khách. Chat Zalo / SMS chỉ gửi cho khách đã đồng ý nhận tin.')));
 }
 
 /* ---- Cột ưu tiên cho broker: "mất gì nếu không xử lý" + "đã xử lý tới đâu" ---- */
@@ -821,7 +890,7 @@ function ListScreen(props) {
   const [levelFilter, setLevelFilter] = React.useState(function () { const mm = /^#loc-lv=(\d)$/.exec(location.hash); return mm ? +mm[1] : null; });  // index 0..4 · deep link '#loc-lv=0'
   const [tierFilter, setTierFilter] = React.useState(null);
   const [catFilter, setCatFilter] = React.useState(function () { const mm = /^#loc-cat=(\d)$/.exec(location.hash); return mm ? +mm[1] : null; });      // 1..5 Nhóm vấn đề · deep link test '#loc-cat=1'
-  const [sortSpec, setSortSpec] = React.useState(null);      // null = mặc định: Mức → hạn gần → VIP → NAV; { id, dir: 'asc'|'desc' }
+  const [sortSpec, setSortSpec] = React.useState(null);      // null = mặc định: Mức → Hạng (VIP đầu) → hạn gần → NAV; { id, dir: 'asc'|'desc' }
   const [nameQ, setNameQ] = React.useState('');
   const [nameOp, setNameOp] = React.useState('contains');
   const [handlingFilter, setHandlingFilter] = React.useState(null);
@@ -840,7 +909,7 @@ function ListScreen(props) {
     const mm = /\.x=(\d+)$/.exec(location.hash);
     if (mm && scrollRef.current) scrollRef.current.scrollLeft = +mm[1];
   }, []);
-  const [panelId, setPanelId] = React.useState(function () { const mm = /\.p=(\w+)$/.exec(location.hash); return mm && BY[mm[1]] ? mm[1] : null; });  // test '#so-khach.p=c003'   // panel khách bên phải (chuẩn Twenty: xem nhanh trước, 'Xem chi tiết' mới vào trang)
+  const [panelId, setPanelId] = React.useState(function () { const mm = /\.p=(\w+)(?:\.evt)?$/.exec(location.hash); return mm && BY[mm[1]] ? mm[1] : null; });  // test '#so-khach.p=c003' · '.p=c003.evt' mở sẵn panel con Tạo việc   // panel khách bên phải (chuẩn Twenty: xem nhanh trước, 'Xem chi tiết' mới vào trang)
   // menu view bar { kind: 'filter'|'sort'|'options', page } · test '#so-khach.m=filter' | '.m=filter-status' | '.m=sort' | '.m=options' | '.m=options-fields'
   const [menu, setMenu] = React.useState(function () { const mm = /\.m=(filter|sort|options)(?:-(\w+))?$/.exec(location.hash); return mm ? { kind: mm[1], page: mm[2] || null } : null; });
   const groups = alertGroups();                                       // cảnh báo theo nhóm (nhiều khách cùng nguyên nhân)
@@ -865,11 +934,13 @@ function ListScreen(props) {
   rows = rows.slice().sort(function (a, b) {
     const ea = EV[a.id], eb = EV[b.id];
     if (sortSpec) { const sf = SORT_FIELDS.filter(function (f) { return f.id === sortSpec.id; })[0]; const r = sf.cmp(a, b) * (sortSpec.dir === 'desc' ? -1 : 1); if (r) return r; }
+    // Mặc định: mức → hạng (VIP → Thân thiết → Phổ thông) → hạn gần nhất → số tiền → NAV
     if (ea.status !== eb.status) return ea.status - eb.status;
+    if (TIER_RANK[a.tier] !== TIER_RANK[b.tier]) return TIER_RANK[a.tier] - TIER_RANK[b.tier];
     if (dueRank(a) !== dueRank(b)) return dueRank(a) - dueRank(b);
     const ka = dueKey(a), kb = dueKey(b);
     if (ka !== kb) return ka < kb ? -1 : 1;
-    return atRisk(b) - atRisk(a) || TIER_RANK[a.tier] - TIER_RANK[b.tier] || eb.m.nav - ea.m.nav;
+    return atRisk(b) - atRisk(a) || eb.m.nav - ea.m.nav;
   });
 
   // Bộ cột theo 6 câu broker cần trả lời: ai · gấp mức nào · chuyện gì · còn bao lâu · mất gì · đã xử lý chưa
@@ -1154,11 +1225,7 @@ function ListScreen(props) {
 
   return React.createElement(Page, {
     title: 'Sổ khách', icon: dashTile('address-book', 'blue'),
-    actions: React.createElement(React.Fragment, null,
-      React.createElement('span', { className: 'sk-wide-only', title: 'Tỷ lệ ký quỹ, giá, số tiền cần nộp tính theo số liệu lúc này', style: { fontSize: 'var(--t-font-size-sm)', color: 'var(--t-font-color-tertiary)', whiteSpace: 'nowrap' } }, 'Số liệu lúc ' + NOW_HM + ' · ' + U.ddmm(TODAY)),
-      React.createElement(SearchBox, { initial: props.initialSearch }),
-      React.createElement(Button, { title: 'Tạo sự kiện', accent: 'blue', Icon: 'plus', size: 'small', onClick: function () { focusSearch({ pick: true }); } }),
-      React.createElement(IconButton, { Icon: 'dots-vertical', variant: 'light', accent: 'tertiary', size: 'small', ariaLabel: 'Thêm' })),
+    actions: null,   // nút "⋮" (không có chức năng) đã bỏ theo yêu cầu user
     rightPanel: panelId ? React.createElement(CustomerPanel, { key: panelId, id: panelId, onClose: function () { setPanelId(null); } }) : null,
   },
     React.createElement('div', { ref: barRef, style: { position: 'relative', flexShrink: 0 } },
@@ -1167,6 +1234,7 @@ function ListScreen(props) {
         bottomComponent: chipsRow }),
       menuEl),
     // Cảnh báo nhóm: chỉ hiện 3 nhóm quan trọng nhất (đã xếp đỏ → vàng → xanh, đông khách trước); không mở rộng để bảng không bị đẩy xuống
+    // Banner "AI dự báo" (aiAlert) đã bỏ theo yêu cầu user 2026-11-09 — dự báo vẫn xem ở tab Cần chú ý của từng khách
     alertFilter ? null : React.createElement(StatusBanners, { max: 3, style: { borderBottom: '1px solid var(--t-border-color-light)', flexShrink: 0 },
       items: groups.slice(0, 3).map(function (g) { return { tone: g.tone, text: alertBannerText(g), action: 'Xem chi tiết', onAction: function () { setAlertOpen(g.def.id); } }; }) }),
     React.createElement('div', { style: { position: 'relative', flex: 1, minHeight: 0, display: 'flex' } },
@@ -1188,7 +1256,8 @@ function ListScreen(props) {
         onClose: function () { setAlertOpen(null); },
         onOpenCustomer: function (id) { setAlertOpen(null); setPanelId(id); },
         onFilter: function (id) { setAlertOpen(null); setAlertFilter(id); setSelectedIds([]); },
-        onBulk: function (ids) { setAlertOpen(null); setSelectedIds(ids); setCampaign(true); } }) : null;
+        onBulk: function (ids) { setAlertOpen(null); setSelectedIds(ids); setCampaign(true); },
+        onSent: function (n, skipped) { setAlertOpen(null); showToast('Đã gửi thông báo cho ' + n + ' khách' + (skipped ? ' · bỏ qua ' + skipped + ' khách chưa đồng ý nhận tin' : '')); } }) : null;
     })(),
     campaign ? React.createElement(BulkCampaign, {
       customers: selectedCustomers,
@@ -1460,14 +1529,12 @@ function PortfolioTab(c, e) {
 /* Drawer phải: Xem giải pháp cho MỘT vấn đề của MỘT khách (S.solutions) */
 function SolutionPanel(props) {
   const c = props.customer, issue = props.issue, e = EV[c.id];
-  const res = S.solutions(c, issue, e);
+  const res = issue.preset || S.solutions(c, issue, e);   // preset: giải pháp cho dự báo AI (aiIssue)
   const picks = res.options.filter(function (o) { return o.kind === 'choose' || o.kind === 'order' || o.kind === 'action'; }).slice(0, 3);
-  const locked = res.options.filter(function (o) { return o.kind === 'locked'; });
-  const nothing = res.options.filter(function (o) { return o.kind === 'nothing'; })[0];
-  const [pick, setPick] = React.useState(null);
+  const [pick, setPick] = React.useState(function () { const mm = /\.pick-(\d)/.exec(location.hash); return mm ? +mm[1] : null; });   // test '#khach-c003.issues.sol.pick-0'
   const [note, setNote] = React.useState('');   // kết quả trao đổi — bắt buộc khi không có phương án để chọn
   const noPicks = picks.length === 0;
-  const LETTERS = ['A', 'B', 'C'];
+  const LETTERS = ['A', 'B', 'C', 'D'];
 
   const optionCard = function (o, i) {
     const sel = pick === i;
@@ -1487,13 +1554,44 @@ function SolutionPanel(props) {
     );
   };
 
-  const ready = noPicks ? !!note.trim() : pick != null;
-  const foot = React.createElement(PanelFootRow, { note: ready ? '' : noPicks ? 'Ghi kết quả trao đổi để chốt' : 'Chọn một phương án' },
+  // Sau khi chọn phương án: sửa uỷ quyền broker + đổi trạng thái khách (áp dụng khi Chốt)
+  const newStatus = 4;   // chốt phương án → khách luôn về "Ổn" (user yêu cầu, demo)
+  const [authEdit, setAuthEdit] = React.useState(false);
+  const [authCode, setAuthCode] = React.useState(c.brokerAuth ? c.brokerAuth.code : 'UQ-' + TODAY.slice(0, 4) + '-');
+  const [authScope, setAuthScope] = React.useState(c.brokerAuth ? c.brokerAuth.scope : 'Nhận lệnh qua điện thoại và đặt lệnh thay khách');
+  const [authTo, setAuthTo] = React.useState(c.brokerAuth && c.brokerAuth.to >= TODAY ? c.brokerAuth.to : U.addDays(TODAY, 365));
+  const [authErr, setAuthErr] = React.useState('');
+  const [, setAuthTick] = React.useState(0);
+  const saveAuth = function () {
+    if (!/^UQ-\d{4}-\d{4}$/.test(authCode.trim())) { setAuthErr('Mã uỷ quyền dạng UQ-yyyy-nnnn'); return; }
+    if (!authTo || authTo < TODAY) { setAuthErr('Ngày hết hiệu lực phải từ hôm nay trở đi'); return; }
+    const before = brokerAuthState(c).text;
+    c.brokerAuth = { code: authCode.trim(), broker: 'Chị Lan', scope: authScope, from: c.brokerAuth && c.brokerAuth.from <= TODAY ? c.brokerAuth.from : TODAY, to: authTo };
+    audit('Cập nhật uỷ quyền broker', before + ' → ' + authCode.trim() + ' đến ' + U.ddmmyyyy(authTo), [c.id]);
+    setAuthErr(''); setAuthEdit(false); setAuthTick(function (x) { return x + 1; }); if (props.onChanged) props.onChanged();
+    showToast('Đã cập nhật uỷ quyền ' + authCode.trim() + ' cho ' + c.name);
+  };
+  const revokeAuth = function () {
+    audit('Thu hồi uỷ quyền broker', (c.brokerAuth ? c.brokerAuth.code : '') + ' · ' + c.name, [c.id]);
+    c.brokerAuth = null; setAuthEdit(false); setAuthTick(function (x) { return x + 1; }); if (props.onChanged) props.onChanged();
+    showToast('Đã thu hồi uỷ quyền của ' + c.name);
+  };
+  const applyStatus = function () {
+    if (newStatus === e.status) return;
+    const old = e.status;
+    c.statusOverride = newStatus; reval(c);
+    audit('Đổi trạng thái khách', LEVELS[old] + ' → ' + LEVELS[newStatus] + ' · ' + issue.title, [c.id]);
+  };
+  const custom = noPicks || pick === 'other';
+  const ready = custom ? !!note.trim() : pick != null;
+  const foot = React.createElement(PanelFootRow, { note: ready ? '' : noPicks ? 'Ghi kết quả trao đổi để chốt' : pick === 'other' ? 'Nhập phương án khác' : 'Chọn một phương án' },
     React.createElement(Button, { title: 'Đóng', variant: 'secondary', size: 'small', onClick: props.onClose }),
     React.createElement(Button, { title: 'Chốt phương án', accent: 'blue', size: 'small', disabled: !ready, onClick: function () {
       // Nhật ký "Chốt phương án" chỉ ghi khi lưu sự kiện thành công (không ghi khi bấm rồi huỷ)
-      const opt = noPicks ? { title: note.trim(), kind: 'note' } : picks[pick];
-      props.onConfirm(opt); } }),
+      const opt = custom ? { title: note.trim(), kind: 'note' } : picks[pick];
+      const from = e.status;
+      applyStatus();
+      props.onConfirm(Object.assign({}, opt, { statusFrom: from })); } }),
   );
 
   return React.createElement(SidePanel, {
@@ -1519,15 +1617,49 @@ function SolutionPanel(props) {
       noPicks ? React.createElement(TextInput, { label: 'Kết quả trao đổi với khách *', multiline: true, rows: 3, fullWidth: true, value: note, onChange: setNote,
         placeholder: 'vd Khách rút tiền để mua nhà, chưa có ý định chuyển tài khoản; hẹn gọi lại sau 2 tuần',
         hint: 'Không có phương án để chọn — ghi lại khách nói gì để chốt.' }) : null,
-      // Bị chặn
-      locked.length ? React.createElement('div', { style: { display: 'flex', flexDirection: 'column', gap: 6 } },
-        React.createElement('div', { style: { fontSize: 'var(--t-font-size-sm)', color: 'var(--t-font-color-light)' } }, 'Bị chặn (không chọn được)'),
-        locked.map(function (o, i) { return React.createElement('div', { key: i, style: { padding: 'var(--t-spacing-3)', border: '1px solid var(--t-border-color-light)', borderRadius: 'var(--t-border-radius-md)', background: 'var(--t-background-secondary)', opacity: 0.8 } },
-          React.createElement('div', { style: { fontWeight: 500, color: 'var(--t-font-color-secondary)' } }, o.title),
-          React.createElement('div', { style: { fontSize: 'var(--t-font-size-sm)', color: 'var(--t-tag-text-red)' } }, o.lockReason)); })) : null,
-      nothing ? React.createElement('div', { style: { padding: 'var(--t-spacing-3)', border: '1px solid var(--t-border-color-light)', borderRadius: 'var(--t-border-radius-md)', background: 'var(--t-background-secondary)' } },
-        React.createElement('div', { style: { fontWeight: 500 } }, nothing.title)) : null,
-      React.createElement('div', { style: { fontSize: 'var(--t-font-size-sm)', color: 'var(--t-font-color-light)' } }, 'Con số ước tính theo giá 08:00 ' + U.ddmm(TODAY) + ', chỉ để minh hoạ. Broker quyết định và chịu trách nhiệm; khách tự chọn.'),
+      // Khác: broker tự nhập phương án (như ô "Other" khi chọn đáp án)
+      noPicks ? null : React.createElement('div', {
+        onClick: function () { setPick('other'); },
+        style: { cursor: 'pointer', display: 'flex', flexDirection: 'column', gap: 'var(--t-spacing-2)', padding: 'var(--t-spacing-3)', border: '1px solid ' + (pick === 'other' ? 'var(--t-color-blue)' : 'var(--t-border-color-medium)'), boxShadow: pick === 'other' ? '0 0 0 1px var(--t-color-blue)' : 'none', borderRadius: 'var(--t-border-radius-md)', background: 'var(--t-background-primary)' },
+      },
+        React.createElement('div', { style: { display: 'flex', alignItems: 'center', gap: 'var(--t-spacing-2)' } },
+          React.createElement('span', { style: { display: 'inline-grid', placeItems: 'center', width: 20, height: 20, borderRadius: 'var(--t-border-radius-sm)', background: 'var(--t-accent-tertiary)', color: 'var(--t-accent-accent11)', fontWeight: 600, fontSize: 'var(--t-font-size-sm)' } }, LETTERS[picks.length] || '…'),
+          React.createElement(Radio, { checked: pick === 'other' }),
+          React.createElement('span', { style: { flex: 1, minWidth: 0, fontWeight: 500 } }, 'Khác')),
+        pick === 'other' ? React.createElement('div', { onClick: function (ev) { ev.stopPropagation(); } },
+          React.createElement(TextInput, { multiline: true, rows: 3, fullWidth: true, value: note, onChange: setNote,
+            placeholder: 'Nhập phương án khác đã thống nhất với khách' })) : null),
+      // Sau khi chọn phương án: uỷ quyền + trạng thái
+      (pick != null || noPicks) ? (function () {
+        const st = brokerAuthState(c), a = c.brokerAuth;
+        const lab = function (t) { return React.createElement('div', { style: { fontSize: 'var(--t-font-size-sm)', color: 'var(--t-font-color-secondary)', fontWeight: 500 } }, t); };
+        const box = { display: 'flex', flexDirection: 'column', gap: 'var(--t-spacing-2)', padding: 'var(--t-spacing-3)', border: '1px solid var(--t-border-color-light)', borderRadius: 'var(--t-border-radius-md)' };
+        const dateStyle = { height: 32, boxSizing: 'border-box', padding: '0 8px', border: '1px solid var(--t-border-color-medium)', borderRadius: 'var(--t-border-radius-sm)', background: 'var(--t-background-transparent-lighter, transparent)', color: 'var(--t-font-color-primary)', fontFamily: 'inherit', fontSize: 'var(--t-font-size-md)' };
+        return React.createElement(React.Fragment, null,
+          React.createElement('div', { style: { height: 1, background: 'var(--t-border-color-light)', margin: 'var(--t-spacing-1) 0' } }),
+          // Uỷ quyền cho broker
+          lab('Uỷ quyền cho broker'),
+          React.createElement('div', { style: box },
+            React.createElement('div', { style: { display: 'flex', alignItems: 'center', gap: 'var(--t-spacing-2)', flexWrap: 'wrap' } },
+              React.createElement(Tag, { text: st.text, color: st.color, size: 'sm', preventShrink: true }),
+              a ? React.createElement('span', { style: { fontSize: 'var(--t-font-size-sm)', color: 'var(--t-font-color-tertiary)' } }, a.code) : null,
+              React.createElement('span', { style: { flex: 1 } }),
+              authEdit ? null : React.createElement(LightButton, { title: a ? 'Sửa' : 'Thêm uỷ quyền', Icon: a ? 'pencil' : 'plus', accent: 'blue', onClick: function () { setAuthEdit(true); } })),
+            a && !authEdit ? React.createElement('span', { style: { fontSize: 'var(--t-font-size-sm)', color: 'var(--t-font-color-tertiary)' } }, a.scope + ' · ' + U.ddmmyyyy(a.from) + ' – ' + U.ddmmyyyy(a.to)) : null,
+            authEdit ? React.createElement(React.Fragment, null,
+              React.createElement(TextInput, { label: 'Mã uỷ quyền *', fullWidth: true, value: authCode, onChange: function (v) { setAuthCode(v); setAuthErr(''); }, placeholder: 'UQ-2026-0003' }),
+              React.createElement(Select, { label: 'Phạm vi', fullWidth: true, value: authScope, onChange: setAuthScope,
+                options: ['Nhận lệnh qua điện thoại và đặt lệnh thay khách', 'Chỉ tư vấn, không đặt lệnh'].map(function (v) { return { value: v, label: v }; }) }),
+              React.createElement('label', { style: { display: 'flex', flexDirection: 'column', gap: 'var(--t-spacing-1)' } },
+                React.createElement('span', { style: { fontSize: 'var(--t-font-size-sm)', color: 'var(--t-font-color-tertiary)' } }, 'Hiệu lực đến *'),
+                React.createElement('input', { type: 'date', value: authTo, onChange: function (ev) { setAuthTo(ev.target.value); setAuthErr(''); }, style: dateStyle })),
+              authErr ? React.createElement('span', { style: { fontSize: 'var(--t-font-size-sm)', color: 'var(--t-tag-text-red)' } }, authErr) : null,
+              React.createElement('div', { style: { display: 'flex', gap: 'var(--t-spacing-2)', alignItems: 'center' } },
+                a ? React.createElement(LightButton, { title: 'Thu hồi', Icon: 'trash', accent: 'tertiary', onClick: revokeAuth }) : null,
+                React.createElement('span', { style: { flex: 1 } }),
+                React.createElement(Button, { title: 'Huỷ', variant: 'secondary', size: 'small', onClick: function () { setAuthEdit(false); setAuthErr(''); } }),
+                React.createElement(Button, { title: 'Lưu uỷ quyền', accent: 'blue', size: 'small', onClick: saveAuth }))) : null));
+      })() : null,
     ),
   );
 }
@@ -1679,6 +1811,7 @@ function EventPanel(props) {
   const [result, setResult] = React.useState(pf.content ? 'Đồng ý' : '');
   const [date, setDate] = React.useState(pf.at ? pf.at.slice(0, 10) : TODAY);
   const [time, setTime] = React.useState(pf.at ? pf.at.slice(11, 16) : nowHM());
+  const tradeMode = !!(pf.order || pf.lockOrder);   // form "Xác nhận đặt lệnh" (có ô khuyến nghị/đặt lệnh); Tạo sự kiện thường thì không
   const [order, setOrder] = React.useState(!!pf.order);          // nhận lệnh / đặt lệnh thay khách (phương án là lệnh → khoá bật)
   const [buy, setBuy] = React.useState(false);                   // khuyến nghị mua — tách riêng để chặn khi khách bị chặn tư vấn mua
   const buyBlock = EV[c.id].blocks.filter(function (b) { return b.state === 'now' && /Tư vấn mua|Mua thêm|Mọi giao dịch/.test(b.what); })[0] || null;
@@ -1690,6 +1823,7 @@ function EventPanel(props) {
   const needConsent = (order || buy) && !c.consent.record;
   const [cancelWhy, setCancelWhy] = React.useState('');
   const [selfPlace, setSelfPlace] = React.useState(false);   // khách tự đặt lệnh trên ứng dụng (broker không đặt thay)
+  const needAuth = order || !!pf.needAuth;                    // chốt phương án (kể cả không phải lệnh) → bắt buộc uỷ quyền + khách xác nhận
   const [err, setErr] = React.useState('');
   // Xác minh uỷ quyền: hệ thống gửi mã tới số ĐÃ ĐĂNG KÝ của người xác nhận, khách đọc mã cho broker nhập.
   // Chứng minh chính khách (hoặc người được uỷ quyền đúng phạm vi) cho phép broker thao tác lần này.
@@ -1743,10 +1877,10 @@ function EventPanel(props) {
     if (!content.trim()) { setErr('Hãy nhập nội dung.'); return; }
     if (!date || !time) { setErr('Hãy chọn thời gian.'); return; }
     if (done && !result) { setErr('Hãy chọn kết quả.'); return; }
-    if (order && !selfPlace && baState.key !== 'ok') { setErr(baState.key === 'none' ? 'Khách chưa uỷ quyền cho broker — không được đặt lệnh thay khách.' : 'Uỷ quyền đã hết hạn — không được đặt lệnh thay khách.'); return; }
-    if (order && !selfPlace && !authOk) { setErr('Chưa kiểm tra mã uỷ quyền của khách cho broker.'); return; }
+    if (needAuth && !selfPlace && baState.key !== 'ok') { setErr(baState.key === 'none' ? 'Khách chưa uỷ quyền cho broker — không được thao tác thay khách.' : 'Uỷ quyền đã hết hạn — không được thao tác thay khách.'); return; }
+    if (needAuth && !selfPlace && !authOk) { setErr('Chưa kiểm tra mã uỷ quyền của khách cho broker.'); return; }
     if (order && !selfPlace && !person.canOrder) { setErr(person.name + ' — ' + person.scope + '.'); return; }
-    if (order && !selfPlace && !verified) { setErr('Chưa xác minh uỷ quyền: gửi mã cho khách và nhập mã khách đọc.'); return; }
+    if (needAuth && !selfPlace && !verified) { setErr('Chưa xác minh uỷ quyền: gửi mã cho khách và nhập mã khách đọc.'); return; }
     if (buy && buyBlock) { setErr('Khách đang bị chặn: ' + buyBlock.what.toLowerCase() + ' — không ghi được khuyến nghị mua.'); return; }
     if (status === 'Hủy hẹn' && !cancelWhy) { setErr('Chọn lý do huỷ hẹn.'); return; }
     if (status === 'Dời lịch' && date + 'T' + time <= TODAY + 'T' + nowHM()) { setErr('Ngày giờ hẹn mới phải sau bây giờ.'); return; }
@@ -1762,8 +1896,9 @@ function EventPanel(props) {
       note: content.trim(), issueTitle: pf.issueTitle || '', option: pf.option || '',
     };
     if (done && result !== 'Không liên lạc được') evt.decision = result;
-    if (order && !selfPlace) { evt.verify = verified; evt.brokerAuth = ba.code; }
-    if (order && selfPlace) evt.selfPlaced = true;
+    if (needAuth && !selfPlace) { evt.verify = verified; evt.brokerAuth = ba.code; }
+    if (needAuth && selfPlace) evt.selfPlaced = true;
+    if (pf.followUp) c.tasks.push({ id: 'tf' + id, title: pf.followUp.title, due: pf.followUp.due, channel: 'Gọi đi', done: false });
     if (order || buy) { evt.rec = rec.trim(); evt.risk = true; }
     if (buy) evt.buyAdvice = true;
     if (status === 'Đã lên lịch') { evt.note += ' — hẹn ' + U.hhmm(date + 'T' + time) + ' ' + U.ddmm(date + 'T' + time); c.tasks.push({ id: 't' + id, title: content.trim(), due: date + 'T' + time, channel: channel, done: false }); }
@@ -1785,16 +1920,17 @@ function EventPanel(props) {
     if (needConsent && recConsent) { c.consent.record = true; audit('Ghi nhận đồng ý ghi âm', 'Khách đồng ý ghi âm trong cuộc gọi', [c.id]); }
     c.events.push(evt);
     if (pf.optionAudit) audit('Chốt phương án', pf.optionAudit + (order || buy ? ' · mã ghi âm ' + evt.rec : ''), [c.id]);   // chỉ ghi khi lưu thành công
-    audit('Ghi sự kiện', channel + ' · ' + evt.result + (evt.decision ? ' · ' + evt.decision : '') + (order && selfPlace ? ' · khách tự đặt lệnh trên ứng dụng, ghi âm ' + evt.rec : order ? ' · có đặt lệnh, xác minh bởi ' + verified.rel.toLowerCase() + ' ' + verified.name + ', ghi âm ' + evt.rec : buy ? ' · khuyến nghị mua, ghi âm ' + evt.rec : ''), [c.id]);
+    audit('Ghi sự kiện', channel + ' · ' + evt.result + (evt.decision ? ' · ' + evt.decision : '') + (order && selfPlace ? ' · khách tự đặt lệnh trên ứng dụng, ghi âm ' + evt.rec : order ? ' · có đặt lệnh, xác minh bởi ' + verified.rel.toLowerCase() + ' ' + verified.name + ', ghi âm ' + evt.rec : buy ? ' · khuyến nghị mua, ghi âm ' + evt.rec : pf.needAuth ? (selfPlace ? ' · khách tự thực hiện' : ' · uỷ quyền ' + ba.code + ', xác nhận bởi ' + verified.rel.toLowerCase() + ' ' + verified.name) : ''), [c.id]);
     reval(c);
     const after = EV[c.id].status;
+    if (pf.followUp) { props.onSaved('Đã chốt: ' + pf.option + ' · nhắc theo dõi ' + U.hhmm(pf.followUp.due) + ' ' + U.ddmm(pf.followUp.due) + (after !== before ? ' · trạng thái ' + LEVELS[before] + ' → ' + LEVELS[after] : '')); return; }
     props.onSaved(after !== before
       ? 'Đã lưu sự kiện. Trạng thái khách đổi từ "' + LEVELS[before] + '" sang "' + LEVELS[after] + '".'
       : 'Đã lưu sự kiện. Trạng thái: ' + LEVELS[after] + '.');
   }
 
   const foot = React.createElement(PanelFootRow, { note: err ? React.createElement('span', { style: { color: 'var(--t-color-red)' } }, err) : '' },
-    React.createElement(Button, { title: 'Đóng', variant: 'secondary', size: 'small', onClick: props.onClose }),
+    React.createElement(Button, { title: props.onBack ? 'Huỷ' : 'Đóng', variant: 'secondary', size: 'small', onClick: props.onBack || props.onClose }),   // panel con: Huỷ = quay lại panel khách
     React.createElement(Button, { title: 'Lưu', accent: 'blue', size: 'small', onClick: save }),
   );
 
@@ -1807,7 +1943,8 @@ function EventPanel(props) {
 
   return React.createElement(SidePanel, {
     width: 440, Icon: 'calendar-plus', iconColor: 'var(--t-color-blue)',
-    title: pf.task ? 'Ghi nhận việc' : 'Tạo sự kiện', onClose: props.onClose, foot: foot,
+    title: pf.task ? 'Ghi nhận việc' : tradeMode ? 'Xác nhận đặt lệnh' : pf.needAuth ? 'Xác nhận phương án' : 'Tạo sự kiện', onClose: props.onClose, onBack: props.onBack, foot: foot,
+    width: props.width || 440,
   },
     React.createElement('div', { style: { display: 'flex', flexDirection: 'column', gap: 'var(--t-spacing-3)', padding: 'var(--t-spacing-3)' } },
       React.createElement('div', { style: { fontSize: 'var(--t-font-size-sm)', color: 'var(--t-font-color-tertiary)' } }, c.name + (pf.issueTitle ? ' · ' + pf.issueTitle : '')),
@@ -1828,18 +1965,20 @@ function EventPanel(props) {
         React.createElement('label', { style: { display: 'flex', flexDirection: 'column', gap: 'var(--t-spacing-1)' } },
           React.createElement('span', { style: { fontSize: 'var(--t-font-size-sm)', color: 'var(--t-font-color-tertiary)' } }, 'Giờ *'),
           React.createElement('input', { type: 'time', value: time, onChange: function (ev) { setTime(ev.target.value); }, style: dateInput }))),
-      React.createElement('div', { style: { height: 1, background: 'var(--t-border-color-light)' } }),
+      // Khuyến nghị mua / đặt lệnh: chỉ ở bước "Xác nhận đặt lệnh" (pf.order/lockOrder) — form Tạo sự kiện không hiện (user 2026-11-09)
+      tradeMode ? React.createElement('div', { style: { height: 1, background: 'var(--t-border-color-light)' } }) : null,
       // Tách 2 ô: khuyến nghị mua (chặn khi khách bị chặn tư vấn mua) · nhận lệnh (phương án là lệnh thì khoá bật)
-      checkRow(buy, setBuy, 'Có khuyến nghị mua', false, !!buyBlock),
-      buyBlock ? React.createElement('div', { style: { display: 'flex', alignItems: 'center', gap: 'var(--t-spacing-2)', paddingLeft: 24, fontSize: 'var(--t-font-size-sm)', color: 'var(--t-tag-text-red)' } },
+      tradeMode ? checkRow(buy, setBuy, 'Có khuyến nghị mua', false, !!buyBlock) : null,
+      tradeMode && buyBlock ? React.createElement('div', { style: { display: 'flex', alignItems: 'center', gap: 'var(--t-spacing-2)', paddingLeft: 24, fontSize: 'var(--t-font-size-sm)', color: 'var(--t-tag-text-red)' } },
         React.createElement('span', { style: { flex: 1 } }, 'Đang chặn: ' + buyBlock.what.toLowerCase()),
         buyBlock.code === 'V-33' ? React.createElement(LightButton, { title: linkSent ? 'Đã gửi link' : 'Gửi link làm lại phiếu', Icon: linkSent ? 'check' : 'send', accent: 'blue', disabled: linkSent, onClick: function () {
           setLinkSent(true); audit('Gửi link làm lại khảo sát', 'Gửi qua ' + (c.consent.zalo ? 'Zalo' : 'SMS'), [c.id]); showToast('Đã gửi link làm lại phiếu khảo sát cho ' + U.callName(c)); } }) : null) : null,
-      checkRow(order, setOrder, 'Nhận lệnh / đặt lệnh thay khách', false, !!pf.lockOrder),
+      tradeMode ? checkRow(order, setOrder, 'Nhận lệnh / đặt lệnh thay khách', false, !!pf.lockOrder) : null,
       pf.lockOrder ? React.createElement('span', { style: { paddingLeft: 24, fontSize: 'var(--t-font-size-sm)', color: 'var(--t-font-color-tertiary)' } }, 'Phương án khách chọn là lệnh — bắt buộc đủ bước xác minh, ghi âm, cảnh báo rủi ro.') : null,
-      (order || buy) ? React.createElement('div', { style: { display: 'flex', flexDirection: 'column', gap: 'var(--t-spacing-2)', padding: 'var(--t-spacing-2) var(--t-spacing-3)', border: '1px solid var(--t-border-color-light)', borderRadius: 'var(--t-border-radius-sm)' } },
-        order && baState.key !== 'ok' ? checkRow(selfPlace, function (v) { setSelfPlace(v); setErr(''); }, 'Khách tự đặt lệnh trên ứng dụng (broker không đặt thay)') : null,
-        order && !selfPlace ? React.createElement(React.Fragment, null,
+      (needAuth || buy) ? React.createElement('div', { style: { display: 'flex', flexDirection: 'column', gap: 'var(--t-spacing-2)', padding: 'var(--t-spacing-2) var(--t-spacing-3)', border: '1px solid var(--t-border-color-light)', borderRadius: 'var(--t-border-radius-sm)' } },
+        pf.needAuth ? React.createElement('span', { style: { fontSize: 'var(--t-font-size-sm)', color: 'var(--t-font-color-tertiary)' } }, 'Chốt phương án thay khách — cần uỷ quyền còn hiệu lực và khách xác nhận bằng mã.') : null,
+        needAuth && baState.key !== 'ok' ? checkRow(selfPlace, function (v) { setSelfPlace(v); setErr(''); }, order ? 'Khách tự đặt lệnh trên ứng dụng (broker không đặt thay)' : 'Khách tự thực hiện (broker không thao tác thay)') : null,
+        needAuth && !selfPlace ? React.createElement(React.Fragment, null,
         // 1) Khách đã uỷ quyền cho broker chưa (giấy/hợp đồng uỷ quyền) — nhập mã uỷ quyền để đối chiếu
         React.createElement('div', { style: { display: 'flex', alignItems: 'center', gap: 'var(--t-spacing-2)' } },
           React.createElement(Icon, { name: 'file-certificate', size: 16, color: authOk ? 'var(--t-tag-text-green)' : 'var(--t-font-color-tertiary)' }),
@@ -1858,7 +1997,7 @@ function EventPanel(props) {
         // 2) Khách xác nhận lệnh lần này bằng mã OTP
         React.createElement('div', { style: { display: 'flex', alignItems: 'center', gap: 'var(--t-spacing-2)', opacity: authOk ? 1 : 0.5 } },
           React.createElement(Icon, { name: 'shield-lock', size: 16, color: verified ? 'var(--t-tag-text-green)' : 'var(--t-font-color-tertiary)' }),
-          React.createElement('span', { style: { flex: 1, fontWeight: 500 } }, '2. Khách xác nhận lệnh này *'),
+          React.createElement('span', { style: { flex: 1, fontWeight: 500 } }, order ? '2. Khách xác nhận lệnh này *' : '2. Khách xác nhận phương án này *'),
           verified ? React.createElement(Tag, { text: 'Đã xác minh · ' + verified.at, color: 'green', Icon: 'check', preventShrink: true }) : React.createElement(Tag, { text: 'Chưa xác minh', color: 'orange', preventShrink: true })),
         authOk && people.length > 1 ? React.createElement(Select, { label: 'Người xác nhận', fullWidth: true, value: who, disabled: !!verified,
           onChange: function (v) { setWho(v); setOtp(null); setOtpIn(''); setErr(''); },
@@ -1877,24 +2016,359 @@ function EventPanel(props) {
         verified ? React.createElement('span', { style: { fontSize: 'var(--t-font-size-sm)', color: 'var(--t-font-color-tertiary)' } }, verified.rel + ' ' + verified.name + ' đã xác nhận bằng mã lúc ' + verified.at + ' — lưu vào nhật ký tuân thủ.') : null,
         authOk && person.dup && person.dup.length ? React.createElement(InlineNotice, { tone: 'warn', title: 'Số ' + mask(person.phone) + ' còn được uỷ quyền ở ' + person.dup.length + ' tài khoản khác' },
           person.dup.map(function (d) { return d.c.name + ' (' + d.rel + ')'; }).join('; ') + '. Hỏi lại người gọi đang thao tác cho tài khoản nào; nghi ngờ thì báo Tuân thủ.') : null,
-        React.createElement('div', { style: { height: 1, background: 'var(--t-border-color-light)' } })) : null,
+        (order || buy) ? React.createElement('div', { style: { height: 1, background: 'var(--t-border-color-light)' } }) : null) : null,
         // Ghi âm + cảnh báo rủi ro (bắt buộc cho cả khuyến nghị mua và nhận lệnh)
-        React.createElement(TextInput, { label: 'Mã cuộc ghi âm *', fullWidth: true, value: rec, onChange: function (v) { setRec(v.toUpperCase()); setErr(''); }, placeholder: 'GA-' + TODAY.replace(/-/g, '') + '-hhmm', hint: 'Lấy từ tổng đài sau khi kết thúc cuộc gọi — không tự đặt mã.' }),
+        (order || buy) ? React.createElement(TextInput, { label: 'Mã cuộc ghi âm *', fullWidth: true, value: rec, onChange: function (v) { setRec(v.toUpperCase()); setErr(''); }, placeholder: 'GA-' + TODAY.replace(/-/g, '') + '-hhmm', hint: 'Lấy từ tổng đài sau khi kết thúc cuộc gọi — không tự đặt mã.' }) : null,
         needConsent ? React.createElement(InlineNotice, { tone: 'warn', title: 'Khách chưa đồng ý ghi âm' }, 'Theo Luật Bảo vệ dữ liệu cá nhân, phải có đồng ý trước khi ghi âm. Hỏi khách ở đầu cuộc gọi.') : null,
         needConsent ? checkRow(recConsent, setRecConsent, 'Khách đã đồng ý ghi âm trong cuộc gọi này', true) : null,
-        checkRow(risk, setRisk, 'Đã cảnh báo rủi ro', true)) : null,
+        (order || buy) ? checkRow(risk, setRisk, 'Đã cảnh báo rủi ro', true) : null) : null,
     ),
   );
+}
+
+/* =========================================================================
+   Tab TỔNG QUAN — theo tài liệu C360 "Tổng quan" (RM-CUSTOMER-02 v4), dựng bằng component DS có sẵn.
+   Khối xếp flex-wrap; bề rộng theo span (≥8 cả dòng · 5–7 nửa dòng · ≤4 khối hẹp).
+   Bỏ qua phần prototype chưa có dữ liệu: banner duyệt / case / vai trò.
+   Chi tiết danh mục cũ nằm cuối tab (id pf-detail) để chip bằng chứng vẫn nhảy tới đúng dòng.
+   ========================================================================= */
+function spanFlex(n) { return n >= 8 ? '1 1 100%' : n >= 5 ? '1 1 460px' : '1 1 300px'; }
+function goPortfolioDetail() { flashEl(document.getElementById('pf-detail')); }
+function OverviewTab(props) {
+  const c = props.customer, e = props.e, m = e.m;
+  const [horizon, setHorizon] = React.useState(c.horizon || '');
+  const blk = function (span, p, kids) { return React.createElement(BlockCard, Object.assign({ style: { flex: spanFlex(span) } }, p), kids); };
+  const link = function (title, fn) { return React.createElement(LightButton, { title: title, Icon: 'arrow-up-right', accent: 'blue', onClick: fn }); };
+  const empty = function (note) { return React.createElement(BlockState, { state: 'empty', note: note }); };
+  const sm = function (t, color) { return React.createElement('span', { style: { fontSize: 'var(--t-font-size-sm)', color: color || 'var(--t-font-color-tertiary)', lineHeight: 1.4 } }, t); };
+  const openTasks = c.tasks.filter(function (t) { return !t.done; }).sort(function (a, b) { return a.due < b.due ? -1 : 1; });
+
+  // 1. Hôm nay nên làm gì — lấy vấn đề ưu tiên nhất
+  const top = e.top;
+  const o1 = top
+    ? blk(8, { highlight: true, title: 'Hôm nay nên làm gì', meta: CATS[top.cat].short + ' · ' + top.title, right: levelTag(top.level) },
+        React.createElement(React.Fragment, null,
+          React.createElement('div', { style: { display: 'flex', flexWrap: 'wrap', gap: 'var(--t-spacing-4)' } },
+            React.createElement('div', { style: { flex: '1 1 220px', minWidth: 220, display: 'flex', flexDirection: 'column', gap: 4 } },
+              React.createElement('span', { style: { fontSize: 'var(--t-font-size-sm)', color: 'var(--t-font-color-tertiary)' } }, 'Vì sao lúc này'),
+              React.createElement('span', { style: { lineHeight: 1.5 } }, top.why),
+              top.evidence && top.evidence.length ? sm('Dựa trên: ' + top.evidence.map(function (v) { return v.label; }).join(' · ')) : null),
+            React.createElement('div', { style: { flex: '1 1 220px', minWidth: 220, display: 'flex', flexDirection: 'column', gap: 4, paddingLeft: 'var(--t-spacing-4)', borderLeft: '1px solid var(--t-border-color-light)' } },
+              React.createElement('span', { style: { fontSize: 'var(--t-font-size-sm)', color: 'var(--t-font-color-tertiary)' } }, 'Đề xuất'),
+              React.createElement('span', { style: { fontWeight: 'var(--t-font-weight-semi-bold)', lineHeight: 1.5 } }, top.fix),
+              sm('Gợi ý từ hệ thống — bạn quyết định.'))),
+          React.createElement('div', { style: { display: 'flex', justifyContent: 'flex-end', gap: 'var(--t-spacing-2)', flexWrap: 'wrap', paddingTop: 'var(--t-spacing-2)', borderTop: '1px solid var(--t-accent-tertiary)' } },
+            React.createElement(Button, { title: 'Tạo việc', variant: 'secondary', size: 'small', Icon: 'checkbox', onClick: props.onNewTask }),
+            React.createElement(Button, { title: 'Xem giải pháp', accent: 'blue', size: 'small', Icon: 'bulb', onClick: function () { props.onSolution(top); } }))))
+    : blk(8, { title: 'Hôm nay nên làm gì' }, sm('Không có việc cần làm cho khách này hôm nay.', 'var(--t-font-color-secondary)'));
+
+  // 2. Attention & theo dõi — vấn đề đang mở + tóm tắt dự báo AI
+  const preds = c.holdings.length ? aiPredictions(c) : [];
+  const nUp = preds.filter(function (p) { return p.dir === 'up'; }).length, nDown = preds.filter(function (p) { return p.dir === 'down'; }).length;
+  const attention = blk(11, { title: 'Attention & theo dõi', meta: e.issues.length + ' mở' + (preds.length ? ' · ' + preds.length + ' mã AI theo dõi' : ''), right: link('Xem tất cả', function () { props.onTab('issues'); }) },
+    React.createElement(React.Fragment, null,
+      e.issues.length
+        ? miniTable([{ label: 'Attention' }, { label: 'Giá trị' }, { label: 'Mức' }, { label: 'Hạn' }, { label: 'Nhóm' }],
+            e.issues.map(function (i) {
+              return [React.createElement('span', { style: { fontWeight: 500, cursor: 'pointer' }, onClick: function () { CTX.onIssue && CTX.onIssue(i.id); } }, i.title),
+                React.createElement('span', { style: { color: 'var(--t-font-color-secondary)' } }, i.short || '—'),
+                levelTag(i.level), i.due ? dueText(i.due) : '—', CATS[i.cat].short];
+            }))
+        : sm('Không có Attention đang mở. Hiện không có mục nào từ các tín hiệu đang theo dõi.', 'var(--t-font-color-secondary)'),
+      preds.length ? React.createElement('div', { style: { display: 'flex', alignItems: 'center', gap: 'var(--t-spacing-2)', flexWrap: 'wrap' } },
+        React.createElement(AiMark), sm('Dự báo ngắn hạn: '),
+        nUp ? React.createElement(Tag, { text: nUp + ' mã có thể tăng', color: 'green', size: 'sm', preventShrink: true }) : null,
+        nDown ? React.createElement(Tag, { text: nDown + ' mã có thể giảm', color: 'red', size: 'sm', preventShrink: true }) : null,
+        link('Xem Cần chú ý', function () { props.onTab('attention'); })) : null));
+
+  // 3. Hàng KPI danh mục — bấm ô nào cũng xuống phần danh mục chi tiết
+  const cost = c.holdings.reduce(function (a, x) { return a + x.qty * x.cost / 1e6; }, 0);
+  const unreal = m.A - cost;
+  const tx30 = c.txns.filter(function (t) { return U.dayDiff(t.date, TODAY) <= 30 && t.status !== 'Chờ khớp'; });
+  const sumT = function (type) { return tx30.filter(function (t) { return t.type === type; }).reduce(function (a, t) { return a + t.amt; }, 0); };
+  const dIn = sumT('Nạp tiền'), dOut = sumT('Rút tiền');
+  const eod = 'Giá lúc ' + NOW_HM + ' · ' + U.ddmm(TODAY);
+  const kpis = [
+    { label: 'NAV', value: U.money(m.nav), sub: eod },
+    { label: 'Tiền mặt', value: U.money(c.cash), sub: m.nav > 0 ? U.pct(c.cash / m.nav * 100, 0) + ' NAV' : '—' },
+    c.holdings.length ? { label: 'Lãi/lỗ chưa thực hiện', value: React.createElement('span', { style: { color: unreal >= 0 ? 'var(--t-tag-text-green)' : 'var(--t-tag-text-red)' } }, (unreal >= 0 ? '+' : '') + U.money(unreal)), sub: (unreal >= 0 ? '+' : '') + U.pct(unreal / (cost || 1) * 100) + ' so với giá vốn' }
+      : { label: 'Lãi/lỗ chưa thực hiện', value: 'Chưa có', sub: 'Chưa có dữ liệu danh mục' },
+    { label: 'Hiệu suất (TWR)', value: 'Chưa có', sub: 'Chưa có dữ liệu hiệu suất' },
+    c.margin ? { label: 'Margin', value: m.ratio != null ? 'Tỷ lệ ' + U.pct(m.ratio, 0) : 'Chưa có', sub: 'Nợ ' + U.money(m.debt) + ' · Sức mua ' + U.money(m.buying) }
+      : { label: 'Margin', value: 'Không dùng', sub: 'Chưa mở margin' },
+    tx30.length ? { label: 'Dòng tiền ròng 30 ngày', value: (dIn - dOut >= 0 ? '+' : '') + U.money(dIn - dOut), sub: 'Nạp ' + U.money(dIn) + ' · Rút ' + U.money(dOut) }
+      : { label: 'Dòng tiền ròng 30 ngày', value: 'Chưa có', sub: 'Chưa có dữ liệu tiền 30 ngày' },
+  ];
+  const kpiRow = React.createElement('div', { style: { flex: '1 1 100%', display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: 'var(--t-spacing-2)' } },
+    kpis.map(function (k) { return React.createElement(KpiTile, { key: k.label, label: k.label, value: k.value, sub: k.sub, onClick: goPortfolioDetail }); }));
+
+  // 4. Lifecycle — suy ra từ dữ liệu tài khoản (prototype chưa có dữ liệu case)
+  const STEPS = ['Prospect', 'Opening', 'Opened', 'Funded', 'Activated', 'Active Investor'];
+  const cur = c.trades30 > 0 ? 5 : c.holdings.length ? 4 : c.cash > 0 ? 3 : 2;
+  const dormant = c.trades30 === 0 && (c.idleDays || 0) >= TH.idleDays;
+  const lifecycle = blk(8, { title: 'Lifecycle & Case đang mở', meta: '0 case', right: dormant ? React.createElement(Tag, { text: 'Dormant', color: 'gray', size: 'sm', preventShrink: true }) : null },
+    React.createElement(React.Fragment, null,
+      React.createElement('div', { style: { display: 'grid', gridTemplateColumns: 'repeat(6, minmax(0, 1fr))', gap: 4 } },
+        STEPS.map(function (s, i) {
+          return React.createElement('div', { key: s, style: { display: 'flex', flexDirection: 'column', gap: 4, minWidth: 0 } },
+            React.createElement('span', { style: { height: 4, borderRadius: 2, background: i < cur ? 'var(--t-font-color-tertiary)' : i === cur ? 'var(--t-color-blue)' : 'var(--t-background-transparent-medium)' } }),
+            React.createElement('span', { title: s, style: { fontSize: 'var(--t-font-size-sm)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', color: i === cur ? 'var(--t-color-blue)' : 'var(--t-font-color-tertiary)', fontWeight: i === cur ? 500 : 400 } }, s));
+        })),
+      sm('Không có case đang mở cho khách này.', 'var(--t-font-color-secondary)')));
+
+  // 5. Việc cần làm
+  const tasksBlk = blk(3, { title: 'Việc cần làm', meta: String(openTasks.length) },
+    React.createElement(React.Fragment, null,
+      openTasks.length ? openTasks.map(function (t) {
+        const over = t.due.slice(0, 10) < TODAY;
+        return React.createElement('div', { key: t.id, style: { display: 'flex', alignItems: 'flex-start', gap: 'var(--t-spacing-2)' } },
+          React.createElement(Checkbox, { checked: false, ariaLabel: 'Hoàn thành ' + t.title, onChange: function () { props.onLogTask(t); } }),
+          React.createElement('div', { style: { flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 2 } },
+            React.createElement('div', { style: { display: 'flex', alignItems: 'center', gap: 6 } },
+              React.createElement('span', { title: t.title, style: { flex: 1, minWidth: 0, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' } }, t.title),
+              over ? React.createElement(Tag, { text: 'Quá hạn', color: 'red', size: 'sm', preventShrink: true }) : null),
+            sm('Hẹn ' + U.hhmm(t.due) + ' ' + U.ddmm(t.due) + ' · ' + t.channel)));
+      }) : sm('Không có việc đang mở.', 'var(--t-font-color-secondary)'),
+      openTasks.length ? sm('Đánh dấu hoàn thành để ghi lại kết quả cuộc trao đổi.', 'var(--t-font-color-light)') : null,
+      React.createElement('div', null, React.createElement(Button, { title: 'Việc mới', variant: 'secondary', size: 'small', Icon: 'plus', onClick: props.onNewTask }))));
+
+  // 6. Danh mục tóm tắt — 3 mã lớn nhất
+  const top3 = c.holdings.slice().sort(function (a, b) { return U.val(b) - U.val(a); }).slice(0, 3);
+  const top3pct = top3.reduce(function (a, x) { return a + U.val(x); }, 0) / (m.A || 1) * 100;
+  const pfBlk = blk(4, { title: 'Danh mục tóm tắt', right: c.holdings.length ? link('Xem đầy đủ', goPortfolioDetail) : null },
+    top3.length ? React.createElement(React.Fragment, null,
+      top3.map(function (x) {
+        const pl = (U.priceOf(x) - x.cost) / x.cost * 100;
+        return React.createElement(KVRow, { key: x.t, label: x.t, Icon: 'chart-pie', value: React.createElement('span', null, U.money(U.val(x)) + ' · ' + U.pct(U.val(x) / (m.A || 1) * 100, 0) + ' · ',
+          React.createElement('span', { style: { color: pl >= 0 ? 'var(--t-tag-text-green)' : 'var(--t-tag-text-red)' } }, (pl >= 0 ? '+' : '') + U.pct(pl))) });
+      }),
+      sm(top3.length + ' mã lớn nhất · ' + U.pct(top3pct, 0) + ' danh mục cổ phiếu', 'var(--t-font-color-light)'))
+      : empty('Chưa có dữ liệu danh mục. Lý do: tài khoản đang giữ toàn tiền mặt.'));
+
+  // 7. Tương tác gần đây
+  const evs = c.events.slice().sort(function (a, b) { return a.at < b.at ? 1 : -1; });
+  const done = evs.filter(function (ev) { return ev.result === 'Hoàn thành'; })[0];
+  const chCount = {}; evs.forEach(function (ev) { chCount[ev.channel] = (chCount[ev.channel] || 0) + 1; });
+  const mainCh = Object.keys(chCount).sort(function (a, b) { return chCount[b] - chCount[a]; })[0];
+  const CH_COLOR = { 'Zalo': 'purple', 'Gọi đi': 'green', 'Khách gọi đến': 'green', 'Gặp trực tiếp': 'blue', 'Email': 'blue' };
+  const stat = function (label, value) { return React.createElement('div', { style: { display: 'flex', flexDirection: 'column', gap: 2, minWidth: 0 } }, sm(label), React.createElement('span', { style: { fontWeight: 500, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' } }, value)); };
+  const interBlk = blk(8, { title: 'Tương tác gần đây', right: link('Xem tất cả', function () { props.onTab('timeline'); }) },
+    React.createElement(React.Fragment, null,
+      React.createElement('div', { style: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: 'var(--t-spacing-2)', paddingBottom: 'var(--t-spacing-2)', borderBottom: '1px solid var(--t-border-color-light)' } },
+        stat('Có ý nghĩa gần nhất', done ? U.ddmm(done.at) + ' · ' + U.dayDiff(done.at, TODAY) + ' ngày trước' : 'Chưa có'),
+        stat('Loại tương tác', mainCh || 'Chưa có'),
+        stat('Nhịp giao dịch thường', c.trades30 + ' lệnh / 30 ngày'),
+        stat('Việc đang mở', String(openTasks.length))),
+      evs.length
+        ? miniTable([{ label: 'Kênh' }, { label: 'Ai' }, { label: 'Tóm tắt' }, { label: 'Kết quả' }, { label: 'Khi', r: true }],
+            evs.slice(0, 5).map(function (ev) {
+              return [React.createElement(Tag, { text: ev.channel, color: CH_COLOR[ev.channel] || 'gray', size: 'sm', preventShrink: true }),
+                ev.broker || '—',
+                React.createElement('span', { title: [ev.purpose, ev.note].filter(Boolean).join(' — ') }, [ev.purpose, ev.note].filter(Boolean).join(' — ')),
+                ev.result, U.ddmm(ev.at)];
+            }))
+        : sm('Chưa có tương tác nào.', 'var(--t-font-color-secondary)')));
+
+  // 8. Nhu cầu & hồ sơ còn thiếu
+  const missing = [];
+  if (!horizon) missing.push('Thiếu thời hạn đầu tư');
+  if (c.survey && U.dayDiff(c.survey, TODAY) > TH.surveyDays) missing.push('Khảo sát khẩu vị quá hạn từ ' + U.ddmm(U.addDays(c.survey, TH.surveyDays)));
+  if (c.idExpiry && U.dayDiff(TODAY, c.idExpiry) <= TH.idSoon) missing.push(U.dayDiff(TODAY, c.idExpiry) < 0 ? 'CCCD đã hết hạn' : 'CCCD sắp hết hạn ' + U.ddmmyyyy(c.idExpiry));
+  const needBlk = blk(4, { title: 'Nhu cầu & hồ sơ còn thiếu' },
+    React.createElement(React.Fragment, null,
+      React.createElement(KVRow, { label: 'Mục tiêu', Icon: 'target', value: c.goal ? React.createElement(Tag, { text: c.goal, color: 'blue', size: 'sm' }) : '—' }),
+      React.createElement(KVRow, { label: 'Khẩu vị (khai báo)', Icon: 'gauge', value: c.appetite ? React.createElement(Tag, { text: c.appetite, color: 'gray', size: 'sm' }) : '—' }),
+      React.createElement(KVRow, { label: 'Chịu lỗ tối đa', Icon: 'trending-down', value: c.maxLoss != null ? c.maxLoss + '% danh mục' : '—' }),
+      React.createElement(KVRow, { label: 'Thời hạn đầu tư', Icon: 'calendar', value: React.createElement(Select, { sizeVariant: 'sm', value: horizon, onChange: setHorizon, placeholder: 'Chưa xác định',
+        options: [{ value: '', label: 'Chưa xác định' }, { value: 'Dưới 1 năm', label: 'Dưới 1 năm' }, { value: '1–3 năm', label: '1–3 năm' }, { value: '3–5 năm', label: '3–5 năm' }, { value: 'Trên 5 năm', label: 'Trên 5 năm' }], style: { width: 160 } }) }),
+      missing.length ? React.createElement('div', { style: { display: 'flex', gap: 4, flexWrap: 'wrap' } }, missing.map(function (t) { return React.createElement(Tag, { key: t, text: t, color: 'yellow', size: 'sm' }); }))
+        : sm('Hồ sơ đầy đủ.', 'var(--t-font-color-light)')));
+
+  // 9. Tóm tắt quan hệ (AI) — sinh từ dữ liệu khách (mock)
+  const secs = {}; c.holdings.forEach(function (x) { const s = U.sectorOf(x.t); secs[s] = (secs[s] || 0) + U.val(x); });
+  const topSec = Object.keys(secs).sort(function (a, b) { return secs[b] - secs[a]; })[0];
+  const b = function (t) { return React.createElement('span', { style: { fontWeight: 'var(--t-font-weight-medium)' } }, t); };
+  const aiBlk = blk(4, { title: 'Tóm tắt quan hệ', right: React.createElement(AiMark) },
+    (evs.length || c.holdings.length) ? React.createElement(React.Fragment, null,
+      React.createElement('span', { style: { lineHeight: 1.6 } },
+        'Khách ', b(c.tier), ' từ ', c.since, ', khẩu vị ', b((c.appetite || '—').toLowerCase()), '. ',
+        done ? ['Lần trao đổi có ý nghĩa gần nhất ', b(U.ddmm(done.at)), ' qua ', done.channel.toLowerCase(), '. '] : 'Chưa có lần trao đổi nào được ghi nhận. ',
+        topSec ? ['Danh mục ', b(c.holdings.length + ' mã'), ', tập trung ', b(topSec + ' ' + U.pct(secs[topSec] / (m.A || 1) * 100, 0)), '. '] : 'Đang giữ toàn tiền mặt. ',
+        e.issues.length ? ['Đang có ', b(e.issues.length + ' vấn đề'), ', ưu tiên: ', top.title.toLowerCase(), '.'] : 'Hiện không có vấn đề cần xử lý.'),
+      e.issues.length && top.level <= 1 ? React.createElement('span', { style: { display: 'flex', gap: 6, alignItems: 'flex-start', fontSize: 'var(--t-font-size-sm)', color: 'var(--t-tag-text-yellow)' } },
+        React.createElement(Icon, { name: 'alert-triangle', size: 14, color: 'var(--t-tag-text-yellow)' }), 'Kiểm chứng số liệu trước khi trao đổi — tóm tắt do AI tạo.') : null,
+      React.createElement('div', { style: { display: 'flex', alignItems: 'center', gap: 'var(--t-spacing-2)', flexWrap: 'wrap' } },
+        sm('Cập nhật ' + NOW_HM + ' hôm nay', 'var(--t-font-color-light)'), React.createElement('span', { style: { flex: 1 } }),
+        React.createElement(Button, { title: 'Chuẩn bị cuộc gọi', variant: 'secondary', size: 'small', Icon: 'phone', onClick: function () { props.onTab('issues'); } })))
+      : empty('Chưa đủ dữ liệu để tóm tắt quan hệ — khách chưa có giao dịch.'));
+
+  // 10. Data health (mock) — 9 domain; "Hành vi số" quá hạn ở một số khách
+  const lag = aiSeed(c.id) % 4 === 0;
+  const DOM = [['Khách, broker, team', '07:00', '1 ngày'], ['Tài khoản & eKYC', '07:00', '1 ngày'], ['Tiền', NOW_HM, '15 phút'], ['Giao dịch', NOW_HM, '15 phút'], ['Danh mục', NOW_HM, '15 phút'],
+    ['Sản phẩm', '06:00', '1 ngày'], ['Chuyển tài sản', '06:00', '1 ngày'], ['Hành vi số', lag ? U.ddmm(U.addDays(TODAY, -3)) : '06:30', '1 ngày'], ['Tương tác ngoài hệ thống', '07:30', '1 ngày']];
+  const nLate = lag ? 1 : 0;
+  const healthBlk = blk(8, { title: 'Data health', right: nLate ? React.createElement(Tag, { text: nLate + ' quá hạn', color: 'yellow', size: 'sm', preventShrink: true }) : React.createElement(Tag, { text: 'Tất cả đạt', color: 'green', size: 'sm', preventShrink: true }) },
+    React.createElement(React.Fragment, null,
+      miniTable([{ label: 'Domain' }, { label: 'Cập nhật' }, { label: 'SLA' }, { label: 'Trạng thái' }],
+        DOM.map(function (d) { const late = lag && d[0] === 'Hành vi số'; return [d[0], d[1], d[2], React.createElement(Tag, { text: late ? 'Quá hạn' : 'Đạt', color: late ? 'yellow' : 'green', size: 'sm', preventShrink: true })]; }),
+        null, DOM.map(function (d) { return lag && d[0] === 'Hành vi số' ? 'var(--t-tag-background-yellow)' : null; })),
+      missing.length ? React.createElement(KVRow, { label: 'Dữ liệu còn thiếu', Icon: 'file-alert', value: 'Hồ sơ · ' + missing.join(' · ') }) : null));
+
+  // Danh mục chi tiết (giữ nội dung tab Danh mục cũ)
+  const detail = React.createElement('div', { id: 'pf-detail', style: { flex: '1 1 100%', display: 'flex', flexDirection: 'column', gap: 'var(--t-spacing-2)', borderRadius: 'var(--t-border-radius-md)' } },
+    React.createElement('div', { style: { fontWeight: 500, paddingTop: 'var(--t-spacing-2)' } }, 'Danh mục chi tiết'),
+    PortfolioTab(c, e));
+
+  return React.createElement('div', { style: { display: 'flex', flexWrap: 'wrap', alignItems: 'stretch', gap: 'var(--t-spacing-3)' } },
+    o1, attention, kpiRow, lifecycle, tasksBlk, pfBlk, interBlk, needBlk, aiBlk, healthBlk, detail);
+}
+
+/* Tab Timeline (mock): gộp sự kiện liên hệ · thông báo tài khoản · giao dịch · cuộc gọi chưa ghi, mới nhất trước */
+function TimelineTab(c) {
+  const items = [];
+  (c.events || []).forEach(function (ev) {
+    items.push({ at: ev.at, icon: ev.channel === 'Zalo' ? 'message-dots' : ev.channel === 'Gặp trực tiếp' ? 'users' : ev.channel === 'Khách gọi đến' ? 'phone-incoming' : 'phone',
+      color: 'var(--t-font-color-tertiary)', title: ev.channel + (ev.purpose ? ' · ' + ev.purpose : ''), body: [ev.note, ev.decision ? 'Kết quả: ' + ev.decision : null].filter(Boolean).join(' — '),
+      tag: ev.result ? [ev.result, { 'Hoàn thành': 'green', 'Đã lên lịch': 'blue', 'Không liên lạc được': 'red', 'Dời lịch': 'yellow', 'Hủy': 'gray' }[ev.result] || 'gray'] : null });
+  });
+  (c.acct || []).forEach(function (a) { items.push({ at: a.at, icon: 'building-bank', color: 'var(--t-tag-text-red)', title: 'Thông báo tài khoản', body: a.text }); });
+  (c.txns || []).forEach(function (t) {
+    const order = t.type === 'Mua' || t.type === 'Bán';
+    items.push({ at: t.date, icon: order ? (t.type === 'Mua' ? 'arrow-down-left' : 'arrow-up-right') : 'cash', color: t.type === 'Bán' || t.type === 'Rút tiền' ? 'var(--t-tag-text-orange)' : 'var(--t-color-blue)',
+      title: t.type + (t.t ? ' ' + t.t : ''), body: (t.t ? U.fmt(t.qty) + ' × ' + U.fmt(t.price) + ' · ' : '') + U.money(t.amt),
+      tag: t.status === 'Chờ khớp' ? ['Chờ khớp', 'blue'] : null });
+  });
+  (c.unlogged || []).forEach(function (u) { items.push({ at: u.at, icon: 'phone-incoming', color: 'var(--t-tag-text-orange)', title: u.dir + ' · ' + u.dur, body: 'Ghi âm ' + u.rec, tag: ['Chưa ghi nội dung', 'orange'] }); });
+  items.sort(function (a, b) { return a.at < b.at ? 1 : -1; });
+  if (!items.length) return React.createElement(EmptyState, { Icon: 'timeline', title: 'Chưa có hoạt động', subtitle: 'Khách chưa có liên hệ hay giao dịch nào.' });
+  const hasTime = function (s) { return String(s).length > 10; };
+  return React.createElement(BlockCard, { title: 'Dòng thời gian', meta: items.length + ' mục · dữ liệu minh hoạ' },
+    items.map(function (it, ii) {
+      const last = ii === items.length - 1;
+      return React.createElement('div', { key: ii, style: { display: 'flex', gap: 'var(--t-spacing-3)' } },
+        React.createElement('div', { style: { display: 'flex', flexDirection: 'column', alignItems: 'center', flexShrink: 0, width: 24 } },
+          React.createElement('span', { style: { width: 24, height: 24, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--t-background-secondary)', border: '1px solid var(--t-border-color-light)', boxSizing: 'border-box', flexShrink: 0 } }, React.createElement(Icon, { name: it.icon, size: 13, color: it.color })),
+          last ? null : React.createElement('span', { style: { flex: 1, width: 1, background: 'var(--t-border-color-light)', minHeight: 12 } })),
+        React.createElement('div', { style: { flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 2, paddingBottom: last ? 0 : 'var(--t-spacing-3)' } },
+          React.createElement('div', { style: { display: 'flex', alignItems: 'center', gap: 'var(--t-spacing-1)', minHeight: 24, flexWrap: 'wrap' } },
+            React.createElement('span', { style: { fontWeight: 500 } }, it.title),
+            it.tag ? React.createElement(Tag, { text: it.tag[0], color: it.tag[1], size: 'sm', preventShrink: true }) : null,
+            React.createElement('span', { style: { flex: 1 } }),
+            React.createElement('span', { style: { fontSize: 'var(--t-font-size-sm)', color: 'var(--t-font-color-light)', whiteSpace: 'nowrap' } }, U.ddmm(it.at) + (hasTime(it.at) ? ' · ' + U.hhmm(it.at) : ''))),
+          it.body ? React.createElement('span', { style: { color: 'var(--t-font-color-secondary)', lineHeight: 1.4 } }, it.body) : null));
+    }));
+}
+
+/* Tab Cần chú ý (mock AI): dự báo ngắn hạn cho từng mã khách đang giữ — tăng / giảm / đi ngang.
+   Sinh tất định từ mã + lãi/lỗ để mỗi lần mở đều giống nhau. Chỉ minh hoạ, không phải khuyến nghị. */
+function aiSeed(s) { let h = 0; for (let i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) >>> 0; return h; }
+function aiPredictions(c) {
+  const UP = ['Dòng tiền khối ngoại mua ròng 5 phiên liên tiếp', 'KQKD quý gần nhất vượt kỳ vọng thị trường', 'Giá vượt đường trung bình 20 phiên với khối lượng tăng', 'Ngành đang được hưởng lợi từ chính sách mới', 'Sắp chốt quyền cổ tức tiền mặt'];
+  const DOWN = ['Khối ngoại bán ròng mạnh trong tuần', 'Giá thủng hỗ trợ ngắn hạn, khối lượng bán tăng', 'Biên lợi nhuận dự kiến giảm do giá nguyên liệu tăng', 'Tin đồn tiêu cực về kế hoạch phát hành thêm', 'Ngành bị hạ tỷ lệ cho vay ký quỹ'];
+  const FLAT = ['Biên độ dao động hẹp, thiếu thông tin hỗ trợ', 'Thanh khoản thấp, chờ tín hiệu rõ hơn'];
+  return c.holdings.map(function (x) {
+    const h = aiSeed(x.t + c.id), p = U.priceOf(x), pl = (p - x.cost) / x.cost * 100;
+    const dir = h % 5 === 0 ? 'flat' : (h % 2 === 0 ? 'up' : 'down');
+    const pool = dir === 'up' ? UP : dir === 'down' ? DOWN : FLAT;
+    const move = dir === 'flat' ? 0 : 2 + (h % 7);
+    const conf = 55 + (h >>> 3) % 31;   // >>> : h là số không dấu, >> cho số âm → độ tin cậy/căn cứ sai
+    const why = [pool[h % pool.length], pool[(h >>> 4) % pool.length]].filter(function (v, i, a) { return a.indexOf(v) === i; });
+    const act = dir === 'up' ? (pl < 0 ? 'Gợi ý trao đổi: giữ vị thế, chưa cắt lỗ vội.' : 'Gợi ý trao đổi: cân nhắc giữ hoặc đặt giá mục tiêu chốt lời.')
+      : dir === 'down' ? (U.val(x) / (EV[c.id].m.A || 1) > 0.2 ? 'Gợi ý trao đổi: tỷ trọng lớn — cân nhắc giảm bớt hoặc đặt điểm cắt lỗ.' : 'Gợi ý trao đổi: theo dõi, cân nhắc đặt điểm cắt lỗ.')
+      : 'Gợi ý trao đổi: chưa cần hành động, theo dõi thêm.';
+    return { x: x, p: p, dir: dir, move: move, conf: conf, why: why, act: act, horizon: h % 3 === 0 ? '2 tuần tới' : '5 phiên tới' };
+  }).sort(function (a, b) { return (a.dir === 'flat') - (b.dir === 'flat') || b.conf - a.conf; });
+}
+// Banner Sổ khách: khách giữ mã AI dự báo có thể giảm mạnh (tin cậy ≥ 82%, giảm ≥ 7%) — mạnh nhất lên trước
+function aiAlert() {
+  const hits = [];
+  DB.forEach(function (c) {
+    if (!c.holdings.length) return;
+    aiPredictions(c).forEach(function (r) { if (r.dir === 'down' && r.conf >= 82 && r.move >= 7) hits.push({ c: c, r: r }); });   // chỉ tín hiệu mạnh
+  });
+  if (!hits.length) return null;
+  const seen = {}, custs = hits.filter(function (h) { if (seen[h.c.id]) return false; seen[h.c.id] = 1; return true; });
+  hits.sort(function (a, b) { return b.r.move - a.r.move || b.r.conf - a.r.conf || U.val(b.r.x) - U.val(a.r.x); });
+  const top = hits[0];
+  return { n: custs.length, top: top,
+    text: 'AI dự báo · ' + custs.length + ' khách giữ mã có thể giảm — mạnh nhất: ' + top.c.name + ' (' + top.r.x.t + ' giảm ' + top.r.move + '–' + (top.r.move + 3) + '% · ' + top.r.horizon + ' · tin cậy ' + top.r.conf + '%)' };
+}
+// Giải pháp cho một dự báo AI — cùng định dạng S.solutions để dùng chung SolutionPanel
+function aiIssue(c, r) {
+  const t = r.x.t, p = r.p, q30 = Math.max(100, Math.round(r.x.qty * 0.3 / 100) * 100), val = U.val(r.x), A = EV[c.id].m.A || 1;
+  const w = val / A * 100, w2 = (val - q30 * p / 1e6) / A * 100;
+  const pl = (p - r.x.cost) / r.x.cost * 100;
+  const opts = r.dir === 'down' ? [
+    { kind: 'choose', title: 'Đặt điểm cắt lỗ ' + t + ' tại ' + U.fmt(Math.round(p * 0.95 / 100) * 100), fit: { text: 'Giữ vị thế', ok: true },
+      rows: [['Làm gì', 'Khách tự đặt lệnh dừng lỗ trên ứng dụng'], ['Mất tối đa', '≈ ' + U.money(val * 0.05) + ' (5%)']] },
+    { kind: 'order', title: 'Bán bớt ' + U.fmt(q30) + ' cổ phiếu ' + t, fit: { text: 'Giảm rủi ro', ok: true },
+      rows: [['Bao nhiêu', U.fmt(q30) + ' cp × ' + U.fmt(p) + ' ≈ ' + U.money(q30 * p / 1e6)], ['Sau đó', 'Tỷ trọng ' + t + ' từ ' + U.pct(w, 0) + ' còn ' + U.pct(w2, 0)], ['Lãi/lỗ khi bán', (pl >= 0 ? 'Lãi ' : 'Lỗ ') + U.pct(Math.abs(pl), 0)]] },
+    { kind: 'choose', title: 'Giữ nguyên, rà soát lại sau ' + r.horizon, fit: { text: 'Chờ thêm tín hiệu', ok: false },
+      rows: [['Làm gì', 'Theo dõi tin, gọi lại khách nếu giá giảm thêm 5%']] },
+  ] : r.dir === 'up' ? [
+    { kind: 'choose', title: 'Giữ, đặt giá chốt lời ' + t + ' tại ' + U.fmt(Math.round(p * (1 + r.move / 100) / 100) * 100), fit: { text: 'Giữ vị thế', ok: true },
+      rows: [['Làm gì', 'Khách tự đặt lệnh chốt lời trên ứng dụng'], ['Kỳ vọng', '+' + r.move + '–' + (r.move + 3) + '% · ' + r.horizon]] },
+    pl > 0 ? { kind: 'order', title: 'Chốt lời ' + U.fmt(q30) + ' cổ phiếu ' + t, fit: { text: 'Khoá lãi', ok: true },
+      rows: [['Bao nhiêu', U.fmt(q30) + ' cp × ' + U.fmt(p) + ' ≈ ' + U.money(q30 * p / 1e6)], ['Lãi khi bán', U.pct(pl, 0)]] }
+      : { kind: 'choose', title: 'Giữ, chưa cắt lỗ vội', fit: { text: 'Chờ hồi', ok: true }, rows: [['Đang lỗ', U.pct(Math.abs(pl), 0)]] },
+  ] : [
+    { kind: 'choose', title: 'Giữ nguyên, theo dõi thêm', rows: [['Làm gì', 'Chưa cần hành động']] },
+    { kind: 'choose', title: 'Đặt cảnh báo giá ' + t + ' ±5%', rows: [['Làm gì', 'Nhận thông báo khi giá vượt ' + U.fmt(Math.round(p * 1.05 / 100) * 100) + ' hoặc dưới ' + U.fmt(Math.round(p * 0.95 / 100) * 100)]] },
+  ];
+  const lbl = r.dir === 'down' ? 'có thể giảm' : r.dir === 'up' ? 'có thể tăng' : 'đi ngang';
+  return { id: 'ai-' + t, title: 'AI: ' + t + ' ' + lbl + (r.move ? ' ' + r.move + '–' + (r.move + 3) + '%' : ''),
+    preset: { can: ['Trao đổi thông tin', 'Nhận lệnh theo yêu cầu khách'], cannot: [], soon: [], options: opts,
+      ask: ['Anh/chị đã biết tin "' + r.why[0].toLowerCase() + '" chưa?', 'Anh/chị dự định giữ ' + t + ' trong bao lâu?'] } };
+}
+function AttentionTab(c, onSolution) {
+  if (!c.holdings.length) return React.createElement(EmptyState, { Icon: 'sparkles', title: 'Chưa có gì cần chú ý', subtitle: 'Khách không giữ cổ phiếu nào để AI theo dõi.' });
+  const preds = aiPredictions(c);
+  const META = { up: ['Có thể tăng', 'green', 'trending-up', 'var(--t-tag-text-green)'], down: ['Có thể giảm', 'red', 'trending-down', 'var(--t-tag-text-red)'], flat: ['Đi ngang', 'gray', 'arrows-horizontal', 'var(--t-font-color-tertiary)'] };
+  return React.createElement('div', { style: { display: 'flex', flexDirection: 'column', gap: 'var(--t-spacing-3)' } },
+    React.createElement(InlineNotice, { tone: 'info', title: 'Dự báo do AI tạo — chỉ để tham khảo' }, 'Dựa trên giá, dòng tiền và tin tức đến ' + NOW_HM + ' ' + U.ddmm(TODAY) + '. Không phải khuyến nghị đầu tư; broker kiểm chứng trước khi trao đổi với khách.'),
+    preds.map(function (r) {
+      const mt = META[r.dir];
+      return React.createElement(BlockCard, { key: r.x.t,
+        title: React.createElement('span', { style: { display: 'inline-flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' } },
+          React.createElement(Icon, { name: mt[2], size: 16, color: mt[3] }),
+          React.createElement('b', null, r.x.t),
+          React.createElement('span', { style: { fontWeight: 400 } }, mt[0] + (r.move ? ' ' + r.move + '–' + (r.move + 3) + '%' : '') + ' · ' + r.horizon),
+          React.createElement(AiMark)),
+        right: React.createElement('span', { style: { display: 'inline-flex', gap: 6, alignItems: 'center' } },
+          React.createElement(Tag, { text: mt[0], color: mt[1], size: 'sm', preventShrink: true }),
+          React.createElement(Tag, { text: 'Độ tin cậy ' + r.conf + '%', color: r.conf >= 75 ? 'blue' : 'gray', size: 'sm', preventShrink: true })) },
+        React.createElement(KVRow, { label: 'Giá nay', value: U.fmt(r.p) + ' · ' + U.fmt(r.x.qty) + ' cp · ' + U.sectorOf(r.x.t) }),
+        React.createElement(KVRow, { label: 'Căn cứ', multiline: true, value: React.createElement('ul', { style: { margin: 0, paddingLeft: 18 } }, r.why.map(function (w, wi) { return React.createElement('li', { key: wi }, w); })) }),
+        React.createElement(KVRow, { label: 'Gợi ý', multiline: true, value: r.act }),
+        // Giải pháp: tóm tắt phương án + mở panel Giải pháp (dùng chung với tab Vấn đề)
+        (function () {
+          const iss = aiIssue(c, r), L = ['A', 'B', 'C'];
+          return React.createElement('div', { style: { display: 'flex', flexDirection: 'column', gap: 'var(--t-spacing-1)', paddingTop: 'var(--t-spacing-2)', borderTop: '1px solid var(--t-border-color-light)' } },
+            React.createElement('span', { style: { fontSize: 'var(--t-font-size-sm)', color: 'var(--t-font-color-tertiary)' } }, 'Giải pháp'),
+            iss.preset.options.map(function (o, oi) {
+              return React.createElement('div', { key: oi, style: { display: 'flex', alignItems: 'center', gap: 'var(--t-spacing-2)' } },
+                React.createElement('span', { style: { display: 'inline-grid', placeItems: 'center', width: 18, height: 18, borderRadius: 'var(--t-border-radius-sm)', background: 'var(--t-accent-tertiary)', color: 'var(--t-accent-accent11)', fontWeight: 600, fontSize: 'var(--t-font-size-sm)', flexShrink: 0 } }, L[oi]),
+                React.createElement('span', { style: { flex: 1, minWidth: 0 } }, o.title),
+                o.kind === 'order' ? React.createElement(Tag, { text: 'Có đặt lệnh', color: 'orange', size: 'sm', preventShrink: true }) : null);
+            }),
+            React.createElement('div', { style: { display: 'flex', justifyContent: 'flex-end' } },
+              React.createElement(Button, { title: 'Xem giải pháp', accent: 'blue', size: 'small', Icon: 'bulb', onClick: function () { if (onSolution) onSolution(iss); } })));
+        })());
+    }));
 }
 
 function overdueTask(c) { return c.tasks.filter(function (t) { return !t.done && t.due.slice(0, 10) < TODAY; }).sort(function (a, b) { return a.due < b.due ? -1 : 1; })[0] || null; }
 function DetailScreen(props) {
   const c = props.customer, e = EV[c.id], m = e.m;
-  const TAB_ALIAS = { overview: 'portfolio', portfolio: 'portfolio', issues: 'issues', history: 'issues' }; // [TẠM ẨN HOẠT ĐỘNG] trước đây: history: 'history'
-  const [tab, setTab] = React.useState(TAB_ALIAS[props.initialTab] || (e.issues.length ? 'issues' : 'portfolio')); // [TẠM ẨN HOẠT ĐỘNG] trước đây: : 'history'
+  const TAB_ALIAS = { overview: 'portfolio', portfolio: 'portfolio', issues: 'issues', history: 'timeline', timeline: 'timeline', attention: 'attention' }; // [TẠM ẨN HOẠT ĐỘNG] trước đây: history: 'history'
+  const [tab, setTab] = React.useState(TAB_ALIAS[props.initialTab] || 'portfolio'); // [TẠM ẨN HOẠT ĐỘNG] trước đây: : 'history'
   const [evtKey, setEvtKey] = React.useState(0);
   const [revealed, setRevealed] = React.useState(false);
-  const [solIssue, setSolIssue] = React.useState(props.initialSol && e.issues.length ? e.issues[0] : null);
+  const [solIssue, setSolIssue] = React.useState(function () {
+    const ai = /\.aisol-(\d)/.exec(location.hash);   // test '#khach-c003.attention.aisol-0' → mở giải pháp cho dự báo AI thứ n
+    if (ai && c.holdings.length) { const r = aiPredictions(c)[+ai[1]]; if (r) return aiIssue(c, r); }
+    return props.initialSol && e.issues.length ? e.issues[0] : null;
+  });
   const [evtPrefill, setEvtPrefill] = React.useState(function () {   // object => EventPanel mở
     const tk = props.initialTask && c.tasks.filter(function (t) { return t.id === props.initialTask && !t.done; })[0];   // hẹn đã đóng (dời/huỷ) thì không mở lại
     if (tk) return { task: tk, content: tk.title, channel: tk.channel, status: 'Hoàn thành' };
@@ -1913,8 +2387,10 @@ function DetailScreen(props) {
   const openTasks = c.tasks.filter(function (t) { return !t.done && t.due.slice(0, 10) < TODAY; }).length;
   // Tabs theo mẫu C360: label + " · n", không icon
   const tabs = [
+    { id: 'portfolio', label: 'Tổng quan' },
     { id: 'issues', label: 'Vấn đề' + (e.issues.length ? ' · ' + e.issues.length : '') },
-    { id: 'portfolio', label: 'Danh mục' },
+    { id: 'timeline', label: 'Timeline' },
+    { id: 'attention', label: 'Cần chú ý' },
     // [TẠM ẨN HOẠT ĐỘNG] { id: 'history', label: 'Hoạt động' + (openTasks ? ' · ' + openTasks + ' quá hạn' : '') },
   ];
   const ordered = DB.slice().sort(function (a, b) { return EV[a.id].status - EV[b.id].status || EV[b.id].m.nav - EV[a.id].m.nav; });
@@ -1965,11 +2441,14 @@ function DetailScreen(props) {
     icon: React.createElement(IconButton, { Icon: 'arrow-left', variant: 'light', accent: 'tertiary', size: 'small', ariaLabel: 'Về sổ khách', onClick: props.onBack }),
   },
     React.createElement(Button, { title: 'Tạo việc', variant: 'secondary', size: 'small', Icon: 'checkbox', onClick: function () { const ot = overdueTask(c); openEvent(ot ? { task: ot, content: ot.title, channel: ot.channel, status: 'Dời lịch' } : { status: 'Đã lên lịch' }); } }),
-    React.createElement(Button, { title: 'Ghi cuộc gọi', accent: 'blue', size: 'small', Icon: 'phone', onClick: function () { const ot = overdueTask(c); openEvent(ot ? { task: ot, content: ot.title, channel: 'Gọi đi', status: 'Hoàn thành' } : { status: 'Hoàn thành', channel: 'Gọi đi' }); } }),
   );
 
-  const tabBody = tab === 'portfolio' ? PortfolioTab(c, e)
+  const tabBody = tab === 'portfolio' ? React.createElement(OverviewTab, { customer: c, e: e, onTab: setTab, onSolution: openSolution,
+        onLogTask: function (t) { openEvent({ task: t, content: t.title, channel: t.channel, status: 'Hoàn thành' }); },
+        onNewTask: function () { openEvent({ status: 'Đã lên lịch' }); } })
     : tab === 'issues' ? IssuesTab(c, e, openSolution)
+    : tab === 'timeline' ? TimelineTab(c)
+    : tab === 'attention' ? AttentionTab(c, openSolution)
     : null; // [TẠM ẨN HOẠT ĐỘNG] trước đây: : HistoryTab(c, e, function (task) { openEvent({ task: task, content: task.title, channel: task.channel, status: 'Hoàn thành' }); });
 
   const main = React.createElement('div', { style: { flex: 1, minWidth: 0, overflow: 'hidden', display: 'flex', flexDirection: 'column' } },
@@ -2000,7 +2479,15 @@ function DetailScreen(props) {
       main,
       solIssue ? React.createElement(SolutionPanel, {
         key: 'sol-' + solIssue.id, customer: c, issue: solIssue, onClose: function () { setSolIssue(null); },
-        onConfirm: function (opt) { openEvent({ issueTitle: solIssue.title, option: opt.title, optionAudit: opt.title + ' · ' + solIssue.title, content: opt.kind === 'note' ? opt.title : 'Khách chọn: ' + opt.title, status: 'Hoàn thành', order: opt.kind === 'order', lockOrder: opt.kind === 'order' }); },
+        onChanged: function () { setTick(function (x) { return x + 1; }); },
+        onConfirm: function (opt) {
+          // Có đặt lệnh → bước "Xác nhận đặt lệnh" (uỷ quyền, OTP, ghi âm, cảnh báo rủi ro — bắt buộc theo luật)
+          if (opt.kind === 'order') { openEvent({ issueTitle: solIssue.title, option: opt.title, optionAudit: opt.title + ' · ' + solIssue.title, content: 'Khách chọn: ' + opt.title, status: 'Hoàn thành', order: true, lockOrder: true }); return; }
+          // Không đặt lệnh → vẫn qua bước uỷ quyền (mã uỷ quyền + khách xác nhận OTP) rồi mới chốt; lưu xong tự tạo việc theo dõi trước hạn
+          const i = solIssue;
+          openEvent({ issueTitle: i.title, option: opt.title, optionAudit: opt.title + ' · ' + i.title, content: opt.kind === 'note' ? opt.title : 'Khách chọn: ' + opt.title,
+            status: 'Hoàn thành', channel: 'Gọi đi', needAuth: true, followUp: { title: 'Theo dõi: ' + opt.title, due: callbackDue(c, i) } });
+        },
       }) : null,
       evtPrefill ? React.createElement(EventPanel, {
         key: 'evt-' + evtKey, customer: c, prefill: evtPrefill, onClose: function () { setEvtPrefill(null); }, onSaved: afterSave,
@@ -2571,13 +3058,8 @@ function customerOpportunities(c, rerender) {
    Dữ liệu là bản mẫu trong trình duyệt: tải lại trang (F5) là về dữ liệu gốc.
    ========================================================================= */
 const SCENARIOS = [
-  { g: 'A. Bàn làm việc & ưu tiên', items: [
-    { t: 'Mở đầu ngày làm việc', who: 'Trịnh Văn Sơn', link: '', steps: 'Mở Bàn làm việc.', expect: 'Thẻ "Có thể mất tiền hôm nay": các khách Khẩn (hạn ≤ 1 ngày), khách bị bán giải chấp 14:30 đứng đầu với "Còn 6g 30p · 14:30" chữ đỏ. Thẻ "Việc đã hứa" xếp việc trễ nhất lên đầu. Số trên menu "Bàn làm việc" = tổng 2 thẻ này.' },
-    { t: 'Xem nhanh khách tại chỗ', who: 'Trịnh Văn Sơn', link: 'ban-lam-viec.p=c003', steps: 'Bấm một dòng ở thẻ "Có thể mất tiền".', expect: 'Panel phải mở, không rời trang. Có cảnh báo "Khách chưa uỷ quyền cho broker", thẻ "Việc cần làm ngay" với câu mở đầu, nút Gọi khách.' },
-    { t: 'Việc đã hứa → ghi nhận', who: 'Bùi Đức Long', link: '', steps: 'Bấm dòng "Bùi Đức Long · Hẹn · Trễ 3 ngày" → trong panel bấm "Ghi nhận".', expect: 'Panel hiện dòng ngữ cảnh "Hẹn: Gọi lại tư vấn trái phiếu"; Ghi nhận mở form Ghi nhận việc đã điền sẵn.' },
-  ] },
   { g: 'B. Sổ khách', items: [
-    { t: 'Cảnh báo nhóm — gọi riêng từng khách', who: '11 khách ký quỹ', link: 'canh-bao=ky-quy', steps: 'Ở Sổ khách bấm "Xem chi tiết" dòng "Rủi ro ký quỹ".', expect: 'Modal: Nguyên nhân + căn cứ QĐ 87, danh sách khách xếp theo hạn có "còn bao lâu", Cách giải quyết, nút chính "Gọi <khách gấp nhất>" (không có gửi hàng loạt).' },
+    { t: 'Cảnh báo nhóm — gọi riêng từng khách', who: '11 khách ký quỹ', link: 'canh-bao=ky-quy', steps: 'Ở Sổ khách bấm "Xem chi tiết" dòng "Rủi ro ký quỹ".', expect: 'Modal: Nguyên nhân + căn cứ QĐ 87, danh sách khách (có tick chọn) xếp theo hạn có "còn bao lâu", radio chọn 1 kênh Email / Chat Zalo / SMS / Thông báo app, nút "Gửi thông báo (N)". Gửi xong: toast, khách chưa đồng ý nhận tin qua kênh đã chọn bị bỏ qua.' },
     { t: 'Cảnh báo nhóm — gửi nhắc hàng loạt', who: 'Nhóm khảo sát quá hạn', link: 'canh-bao=khao-sat', steps: 'Bỏ tick 1 khách → "Gửi nhắc cho N khách".', expect: 'Mở form gửi với mẫu tin đã duyệt; số khách giảm theo khách đã bỏ tick.' },
     { t: 'Lọc / sắp xếp chuẩn Twenty', who: '—', link: 'so-khach', steps: 'Bấm Filter → Nhóm vấn đề → 3 · Hồ sơ. Bấm Sort → NAV.', expect: 'Chip "Nhóm vấn đề: 3 · Hồ sơ" và chip sắp xếp dưới thanh view; "Đặt lại" xoá hết.' },
     { t: 'Cột Khách cố định khi cuộn ngang', who: '—', link: 'so-khach.x=400', steps: 'Cuộn ngang bảng.', expect: 'Checkbox + cột Khách đứng yên, các cột khác trượt qua.' },
@@ -2590,9 +3072,11 @@ const SCENARIOS = [
     { t: 'Tìm tên không dấu', who: '—', link: 'tim=tran%20van', steps: 'Gõ "tran van".', expect: 'Ra các khách "Trần Văn…", khách gấp nhất lên đầu.' },
   ] },
   { g: 'D. Trang khách — các tình huống', items: [
+    { t: 'Dự báo AI → tab Cần chú ý → giải pháp', who: 'Trịnh Văn Sơn', link: 'khach-c003.attention', steps: 'Mở tab Cần chú ý → mỗi mã có mục Giải pháp → "Xem giải pháp" → chọn A/B/C/Khác → Chốt. Mở thẳng panel: #khach-c003.attention.aisol-0.', expect: 'Panel Giải pháp cùng mẫu tab Vấn đề: câu nên hỏi, A đặt cắt lỗ · B bán bớt (có đặt lệnh) · C giữ nguyên · D Khác. Chốt A/C → lưu luôn + việc theo dõi; B → Xác nhận đặt lệnh.' },
+    { t: 'Chốt phương án + thêm uỷ quyền → khách về Ổn', who: 'Trịnh Văn Sơn', link: 'khach-c003.issues.sol.pick-0', steps: 'Phương án A đã chọn → "Thêm uỷ quyền" nhập UQ-2026-0003 → Lưu uỷ quyền → Chốt phương án.', expect: 'Lưu uỷ quyền: cảnh báo vàng "Chưa uỷ quyền" biến mất, cột trái hiện "Có · đến …". Chốt: panel đóng ngay (không mở form), toast "Đã chốt … · nhắc theo dõi …", khách tự về "Ổn" ở trang khách và Sổ khách; Nhật ký tuân thủ có "Cập nhật uỷ quyền broker" và "Đổi trạng thái khách".' },
     { t: 'Sắp bị bán giải chấp hôm nay', who: 'Trịnh Văn Sơn', link: 'khach-c003', steps: 'Mở khách.', expect: 'Cảnh báo đỏ "Đang bị chặn", vàng "Chưa uỷ quyền cho broker"; thẻ Việc cần làm ngay "hạn hôm nay 14:30" (không lặp ở cảnh báo).' },
-    { t: 'Bị call — chọn phương án A/B/C', who: 'Trần Văn Bình', link: 'khach-c001.issues.sol', steps: 'Chọn A "Nộp thêm tiền: tối thiểu …" → Chốt phương án.', expect: 'Phương án A ghi các mốc: Hết call (35%) · Về an toàn (45%); khách dưới 30% có thêm "Khỏi bị bán". Phương án bị khoá "Mua thêm để hạ giá vốn". Chốt mở form Tạo sự kiện đã điền "Khách chọn: …".' },
-    { t: 'Không có phương án — phải ghi kết quả', who: 'Đỗ Văn Khoa', link: 'khach-c006.issues.sol', steps: 'Để trống ô "Kết quả trao đổi", rồi nhập nội dung.', expect: 'Không có dòng "Bị chặn". Ô trống → Chốt bị khoá; nhập xong → Chốt mở form với đúng nội dung vừa ghi.' },
+    { t: 'Bị call — chọn phương án A/B/C', who: 'Trần Văn Bình', link: 'khach-c001.issues.sol', steps: 'Chọn A "Nộp thêm tiền: tối thiểu …" → Chốt phương án.', expect: 'Phương án A ghi các mốc: Hết call (35%) · Về an toàn (45%); khách dưới 30% có thêm "Khỏi bị bán". Chọn A (nộp tiền) → Chốt: chốt luôn, tạo việc "Theo dõi: …" trước hạn. Chọn B/C (bán, có đặt lệnh) → Chốt mở "Xác nhận đặt lệnh" (uỷ quyền, OTP, ghi âm, cảnh báo rủi ro).' },
+    { t: 'Không có phương án — phải ghi kết quả', who: 'Đỗ Văn Khoa', link: 'khach-c006.issues.sol', steps: 'Để trống ô "Kết quả trao đổi", rồi nhập nội dung.', expect: 'Không có dòng "Bị chặn". Ô trống → Chốt bị khoá; nhập xong → Chốt lưu luôn đúng nội dung vừa ghi + việc theo dõi.' },
     { t: 'Sắp bị call do hạ tỷ lệ cho vay', who: 'Lê Thu Hà', link: 'khach-c002.portfolio', steps: 'Mở tab Danh mục.', expect: 'VHM có tag "Tỷ lệ cho vay 50% → 40% từ 07/11"; cột trái tỷ lệ "38% → 33% từ 07/11".' },
     { t: 'Bằng chứng nhảy tới dòng số liệu', who: 'Lê Thu Hà', link: 'khach-c002.issues.jump-0', steps: 'Bấm chip bằng chứng có mũi tên ở tab Vấn đề.', expect: 'Chuyển tab/cuộn tới đúng dòng, nháy vàng 1,6 giây; tại đó có chip "Liên quan: …" để quay lại.' },
     { t: 'Danh mục: lệnh chờ khớp, rút tiền lớn, cổ tức', who: 'Đỗ Văn Khoa', link: 'khach-c006.portfolio', steps: 'Mở tab Danh mục.', expect: 'Dòng rút 900 tr tô cam "(15% tài sản)", "Mua PNJ · Chờ khớp", "FPT 15/11 chốt quyền cổ tức".' },
@@ -2664,7 +3148,7 @@ function PlaceholderScreen(props) {
   return React.createElement(PagePanel, null,
     React.createElement(PageHeader, { title: props.title, Icon: props.icon }),
     React.createElement('div', { style: { padding: 'var(--t-spacing-8)' } },
-      React.createElement(EmptyState, { Icon: props.icon, title: 'Ngoài phạm vi bản mẫu', subtitle: 'Bản mẫu này tập trung vào Bàn làm việc, Sổ khách, Chiến dịch và Nhật ký tuân thủ.', actionLabel: 'Về Bàn làm việc', onAction: function () { location.hash = ''; } })));
+      React.createElement(EmptyState, { Icon: props.icon, title: 'Ngoài phạm vi bản mẫu', subtitle: 'Bản mẫu này tập trung vào Sổ khách, Chiến dịch và Nhật ký tuân thủ.', actionLabel: 'Về Sổ khách', onAction: function () { location.hash = 'so-khach'; } })));
 }
 
 /* =========================================================================
@@ -2691,12 +3175,17 @@ function App() {
     // '#tim=<query>' / '#tim-evt=<query>': danh sách + ô tìm đã điền sẵn, dropdown mở (deep link để test)
     const tm = /^tim(-evt)?=(.*)$/.exec(h);
     if (tm) { let qq = tm[2]; try { qq = decodeURIComponent(qq); } catch (er) { /* giữ nguyên */ } return { id: null, search: { q: qq, pick: !!tm[1] } }; }
-    if (h === '' || h.indexOf('ban-lam-viec') === 0) return { id: null, screen: 'home' };   // '#ban-lam-viec.p=<id>' mở sẵn panel khách (test)
+    // Bàn làm việc đã bỏ: link trống / '#ban-lam-viec' cũ → Sổ khách (giữ '.p=<id>' nếu có)
+    if (h === '' || h.indexOf('ban-lam-viec') === 0) {
+      const nh = 'so-khach' + h.slice('ban-lam-viec'.length);
+      try { history.replaceState(null, '', '#' + (h === '' ? 'so-khach' : nh)); } catch (er) { /* frame chặn thì bỏ qua */ }
+      return { id: null, screen: 'list' };
+    }
     if (h === 'hom-nay') return { id: null, screen: 'today' };
     if (h === 'chien-dich') return { id: null, screen: 'campaigns' };
     if (h.indexOf('chien-dich-') === 0) return { id: null, screen: 'campaign', cp: h.slice(11) };
     if (h === 'nhat-ky') return { id: null, screen: 'audit' };
-    if (h === 'kich-ban') return { id: null, screen: 'demo' };
+    if (h === 'kich-ban') { try { history.replaceState(null, '', '#so-khach'); } catch (er) { /* bỏ qua */ } return { id: null, screen: 'list' }; }   // Kịch bản demo đã bỏ
     if (h.indexOf('co-hoi') === 0) return { id: null, screen: 'co-hoi' };   // '#co-hoi.s=<id>' mở sẵn panel kiểm chứng
     if (h === 'phan-khuc' || h === 'hop-thoai') return { id: null, screen: h };
     if (h.indexOf('khach-') !== 0) return { id: null, screen: 'list' };
